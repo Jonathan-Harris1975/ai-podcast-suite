@@ -1,14 +1,14 @@
-import { checkEnv } from "./utils/env-checker.js";
+import { env } from "../../utils/env.js";
+import { logger } from "../../utils/logger.js";
+import { sendWebhook } from "../../utils/webhook.js";
 
-// Required envs for Podcast-artwork
-checkEnv([
-  "OPENROUTER_API_KEY_ART",
-  "R2_ACCOUNT_ID",
-  "R2_BUCKET_ART",
-  "R2_PUBLIC_BASE_URL_ART",
-  "PORT",
-  "NODE_ENV",
-  "LOG_LEVEL"
-]);
-
-console.log("🚀 Podcast-artwork service running...");
+export async function triggerArtwork(sessionId) {
+  if (!env.ARTWORK_START_URL) {
+    logger.info("ARTWORK_START_URL not set; skipping (no-op).");
+    return { skipped: true };
+  }
+  const payload = { sessionId };
+  const url = env.ARTWORK_START_URL.replace(":sessionId", sessionId);
+  const text = await sendWebhook(url, payload, sessionId);
+  return { ok: true, text };
+}
