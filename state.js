@@ -1,14 +1,9 @@
 // state.js
-const states = {
-  script: "idle",
-  artwork: "idle",
-  tts: "idle",
+export const state = {
+  last: {
+    script: null,
+    artwork: null,
+    tts: null,
+    run: null,
+  },
 };
-
-export function getServiceStates() {
-  return states;
-}
-
-export function updateServiceState(name, newState) {
-  if (states[name]) states[name] = newState;
-}
