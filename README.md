@@ -1,15 +1,17 @@
-# AI Podcast Suite (Orchestrator)
+# AI Podcast Suite (Mono Service)
 
-Orchestrates: Script → Artwork → TTS (three retries each).
-Returns 200 immediately from `/start/:sessionId`.
-
-## Endpoints
+**Endpoints**
 - `GET /health`
-- `POST /start/:sessionId`
-- `POST /clean-temp/:sessionId`
+- `POST /start?sessionid={id}`  (non-blocking)
+- `POST /clean-temp?sessionid={id}` (local temp only; no R2)
 
-## Environment
-See `.env.example`. No secrets stored here.
+**Webhooks**
+- Optional verification when `WEBHOOKS_ENABLED=true` and `HOOKDECK_WEBHOOK_SECRET` set.
+- Header: `x-hookdeck-signature` (HMAC SHA256 base64 of raw body).
 
-## Deploy
-Single Dockerfile at root.
+**Env**
+See `.env.example`. The service exits if required variables are missing.
+
+**Run**
+- Dockerfile provided (Node 22 Alpine)
+- Exposes `PORT` (default 3000)

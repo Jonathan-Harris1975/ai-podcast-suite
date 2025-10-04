@@ -1,35 +1,40 @@
 import express from "express";
 import helmet from "helmet";
+import compression from "compression";
 import cors from "cors";
-import { logger } from "./utils/logger.js";
-import { env } from "./utils/env.js";
-import healthRouter from "./routes/health.js";
-import startRouter from "./routes/start.js";
-import cleanRouter from "./routes/clean.js";
+import dotenv from "dotenv";
+import { httpLogger, log } from "./utils/logger.js";
+import { checkEnvFatal } from "./utils/envCheck.js";
+import { healthRouter } from "./routes/health.js";
+import { startRouter } from "./routes/startProcess.js";
+import { cleanerRouter } from "./routes/cleaner.js";
+
+dotenv.config();
+checkEnvFatal();
 
 const app = express();
-app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: "1mb" }));
 
-app.get("/", (req, res) => {
-  res.json({
-    ok: true,
-    name: env.APP_TITLE,
-    desc: env.APP_DESC,
-    version: "1.0.0"
+// capture raw body for optional signature checks
+app.use((req, res, next) => {
+  const chunks = [];
+  req.on("data", (c) => chunks.push(c));
+  req.on("end", () => {
+    req.rawBody = Buffer.concat(chunks);
+    next();
   });
 });
 
-app.use("/health", healthRouter);
-app.use("/start", startRouter);
-app.use("/clean-temp", cleanRouter);
+app.use(helmet());
+app.use(compression());
+app.use(cors());
+app.use(express.json());
+app.use(httpLogger);
+
+app.use(healthRouter);
+app.use(startRouter);
+app.use(cleanerRouter);
 
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => {
-  logger.info({
-    port: String(PORT),
-    appTitle: env.APP_TITLE,
-    appDesc: env.APP_DESC
-  }, "🚀 Orchestrator service running");
+  log.info({ port: PORT }, "🚀 ai-podcast-suite running");
 });
