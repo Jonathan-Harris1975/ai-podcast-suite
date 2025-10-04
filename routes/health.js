@@ -15,4 +15,5 @@ router.get("/", (req, res) => {
   });
 });
 
-export default router;
+// ✅ named export so server.js can import { healthRouter }
+export const healthRouter = router;
