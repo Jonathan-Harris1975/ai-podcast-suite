@@ -11,12 +11,12 @@ import artworkCreate from './services/artwork/routes/createArtwork.js';
 import artworkGenerate from './services/artwork/routes/generateArtwork.js';
 import artworkHealth from './services/artwork/routes/health.js';
 
-import scriptIntro from './services/script/Routes/intro.js';
-import scriptMain from './services/script/Routes/main.js';
-import scriptOutro from './services/script/Routes/outro.js';
-import scriptCompose from './services/script/Routes/compose.js';
-import scriptCreate from './services/script/Routes/createScript.js';
-import scriptHealth from './services/script/Routes/health.js';
+import scriptIntro from './services/script/routes/intro.js';
+import scriptMain from './services/script/routes/main.js';
+import scriptOutro from './services/script/routes/outro.js';
+import scriptCompose from './services/script/routes/compose.js';
+import scriptCreate from './services/script/routes/createScript.js';
+import scriptHealth from './services/script/routes/health.js';
 
 import ttsHealth from './services/tts/routes/health.js';
 import ttsPodcast from './services/tts/routes/podcast.js';
