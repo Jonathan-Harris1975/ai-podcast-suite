@@ -3,7 +3,7 @@ import OpenAI from "openai";
 
 // Config for OpenRouter
 const cfg = {
-  key: process.env.OPENROUTER_API_KEY,
+  key: process.env.OPENROUTER_API_KEY_ART,
   model: "google/gemini-2.5-flash-image-preview",
   baseURL: "https://openrouter.ai/api/v1",
 };
