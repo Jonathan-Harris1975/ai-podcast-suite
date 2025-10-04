@@ -1,26 +1,24 @@
-import express from "express";
-import bodyParser from "body-parser";
-import dotenv from "dotenv";
+import { checkEnv } from "./utils/env-checker.js";
 
-import healthRouter from "./routes/health.js";
-import introRouter from "./routes/intro.js";
-import mainRouter from "./routes/main.js";
-import outroRouter from "./routes/outro.js";
-import composeRouter from "./routes/compose.js";
-import createScriptRouter from "./routes/createScript.js";
+// Required envs for Script-maker
+checkEnv([
+  "FEED_URL",
+  "OPENROUTER_API_KEY_CHATGPT",
+  "OPENROUTER_API_KEY_DEEPSEEK",
+  "OPENROUTER_API_KEY_GOOGLE",
+  "OPENROUTER_API_KEY_GROK",
+  "OPENROUTER_API_KEY_META",
+  "R2_BUCKET_CHUNKS",
+  "R2_BUCKET_TRANSCRIPTS",
+  "R2_META_BUCKET",
+  "R2_PUBLIC_BASE_URL_CHUNKS",
+  "R2_PUBLIC_BASE_URL_META",
+  "R2_PUBLIC_BASE_URL_TRANSCRIPT",
+  "RAPIDAPI_HOST",
+  "RAPIDAPI_KEY",
+  "PORT",
+  "NODE_ENV",
+  "LOG_LEVEL"
+]);
 
-dotenv.config();
-const app = express();
-app.use(bodyParser.json());
-
-app.use("/health", healthRouter);
-app.use("/intro", introRouter);
-app.use("/main", mainRouter);
-app.use("/outro", outroRouter);
-app.use("/compose", composeRouter);
-app.use("/create-script", createScriptRouter);
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+console.log("🚀 Script-maker service running...");
