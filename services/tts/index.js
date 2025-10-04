@@ -1,27 +1,14 @@
-import { checkEnv } from "./utils/env-checker.js";
+import { env } from "../../utils/env.js";
+import { logger } from "../../utils/logger.js";
+import { sendWebhook } from "../../utils/webhook.js";
 
-// Required envs for Podcast-MP3
-checkEnv([
-  "BUCKET_MERGED",
-  "GCP_PROJECT_ID",
-  "GOOGLE_APPLICATION_CREDENTIALS",
-  "MIN_INTRO_DURATION",
-  "MIN_OUTRO_DURATION",
-  "PODCAST_INTRO_URL",
-  "PODCAST_OUTRO_URL",
-  "PORT",
-  "PROCESSING_TIMEOUT_MS",
-  "R2_BUCKET_PODCAST",
-  "R2_BUCKET_RAW",
-  "R2_BUCKET_RAW_TEXT",
-  "R2_META_BUCKET",
-  "R2_PUBLIC_BASE_URL_MERGE",
-  "R2_PUBLIC_BASE_URL_META",
-  "R2_PUBLIC_BASE_URL_PODCAST",
-  "R2_PUBLIC_BASE_URL_RAW",
-  "R2_PUBLIC_BASE_URL_RAW_TEXT",
-  "NODE_ENV",
-  "LOG_LEVEL"
-]);
-
-console.log("🚀 Podcast-MP3 service running...");
+export async function triggerTTS(sessionId) {
+  if (!env.TTS_START_URL) {
+    logger.info("TTS_START_URL not set; skipping (no-op).");
+    return { skipped: true };
+  }
+  const payload = { sessionId };
+  const url = env.TTS_START_URL.replace(":sessionId", sessionId);
+  const text = await sendWebhook(url, payload, sessionId);
+  return { ok: true, text };
+}
