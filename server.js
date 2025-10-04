@@ -1,11 +1,11 @@
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
-import { logger } from "./src/utils/logger.js";
-import { env } from "./src/utils/env.js";
-import healthRouter from "./src/routes/health.js";
-import startRouter from "./src/routes/start.js";
-import cleanRouter from "./src/routes/clean.js";
+import { logger } from "./utils/logger.js";
+import { env } from "./utils/env.js";
+import healthRouter from "./routes/health.js";
+import startRouter from "./routes/start.js";
+import cleanRouter from "./routes/clean.js";
 
 const app = express();
 app.use(helmet());
