@@ -44,4 +44,4 @@ async function runStep(service, sessionId) {
   });
 }
 
-export default router;
+export default startRouter=router;
