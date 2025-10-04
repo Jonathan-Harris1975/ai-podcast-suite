@@ -1,23 +1,27 @@
+import { checkEnv } from "./utils/env-checker.js";
 
-// apps/tts/routes/index.js
-import express from "express";
-import { processTTS } from "../services/ttsProcessor.js";
-import { withRetry } from "../../../utils/retry.js";
-import { log } from "../../../utils/logger.js";
+// Required envs for Podcast-MP3
+checkEnv([
+  "BUCKET_MERGED",
+  "GCP_PROJECT_ID",
+  "GOOGLE_APPLICATION_CREDENTIALS",
+  "MIN_INTRO_DURATION",
+  "MIN_OUTRO_DURATION",
+  "PODCAST_INTRO_URL",
+  "PODCAST_OUTRO_URL",
+  "PORT",
+  "PROCESSING_TIMEOUT_MS",
+  "R2_BUCKET_PODCAST",
+  "R2_BUCKET_RAW",
+  "R2_BUCKET_RAW_TEXT",
+  "R2_META_BUCKET",
+  "R2_PUBLIC_BASE_URL_MERGE",
+  "R2_PUBLIC_BASE_URL_META",
+  "R2_PUBLIC_BASE_URL_PODCAST",
+  "R2_PUBLIC_BASE_URL_RAW",
+  "R2_PUBLIC_BASE_URL_RAW_TEXT",
+  "NODE_ENV",
+  "LOG_LEVEL"
+]);
 
-const router = express.Router();
-
-router.post("/tts", async (req, res) => {
-  try {
-    const result = await withRetry(
-      () => processTTS(req.body),
-      { retries: 3, delay: 2000, label: "🗣️ TTS processing" }
-    );
-    return res.json({ success: true, result });
-  } catch (err) {
-    log.error({ err }, "❌ TTS processing failed after retries");
-    return res.status(500).json({ error: "TTS processing failed" });
-  }
-});
-
-export default router;
+console.log("🚀 Podcast-MP3 service running...");
