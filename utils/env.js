@@ -1,4 +1,4 @@
-import { logger } from "./logger.js";
+import { log as logger } from "./logger.js";
 
 function bool(v, d=false) {
   if (v === undefined) return d;

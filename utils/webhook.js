@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { env } from "./env.js";
-import { logger } from "./logger.js";
+import { log as logger } from "./logger.js";
 import { fetch } from "undici";
 
 export async function sendWebhook(url, body, sessionId, extraHeaders = {}) {
