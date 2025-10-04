@@ -1,24 +1,14 @@
-import { checkEnv } from "./utils/env-checker.js";
+import { env } from "../../utils/env.js";
+import { logger } from "../../utils/logger.js";
+import { sendWebhook } from "../../utils/webhook.js";
 
-// Required envs for Script-maker
-checkEnv([
-  "FEED_URL",
-  "OPENROUTER_API_KEY_CHATGPT",
-  "OPENROUTER_API_KEY_DEEPSEEK",
-  "OPENROUTER_API_KEY_GOOGLE",
-  "OPENROUTER_API_KEY_GROK",
-  "OPENROUTER_API_KEY_META",
-  "R2_BUCKET_CHUNKS",
-  "R2_BUCKET_TRANSCRIPTS",
-  "R2_META_BUCKET",
-  "R2_PUBLIC_BASE_URL_CHUNKS",
-  "R2_PUBLIC_BASE_URL_META",
-  "R2_PUBLIC_BASE_URL_TRANSCRIPT",
-  "RAPIDAPI_HOST",
-  "RAPIDAPI_KEY",
-  "PORT",
-  "NODE_ENV",
-  "LOG_LEVEL"
-]);
-
-console.log("🚀 Script-maker service running...");
+export async function triggerScript(sessionId) {
+  if (!env.SCRIPT_START_URL) {
+    logger.info("SCRIPT_START_URL not set; skipping (no-op).");
+    return { skipped: true };
+  }
+  const payload = { sessionId, feedUrl: env.FEED_URL };
+  const url = env.SCRIPT_START_URL.replace(":sessionId", sessionId);
+  const text = await sendWebhook(url, payload, sessionId);
+  return { ok: true, text };
+}
