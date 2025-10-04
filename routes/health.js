@@ -1,5 +1,6 @@
 import { Router } from "express";
-import state from "../state.js";
+// routes/health.js
+import { state } from "../state.js";
 const router = Router();
 router.get("/", (req, res) => {
   res.json({
