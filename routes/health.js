@@ -1,15 +1,18 @@
-import { Router } from "express",
+import { Router } from "express";
 import { state } from "../state.js";
+
 const router = Router();
+
 router.get("/", (req, res) => {
   res.json({
     ok: true,
     services: {
       script: state.last.script,
       artwork: state.last.artwork,
-      tts: state.last.tts
+      tts: state.last.tts,
     },
-    lastRun: state.last.run
+    lastRun: state.last.run,
   });
 });
+
 export default router;
