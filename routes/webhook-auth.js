@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { log } from "./logger.js";
+import { log } from "../utils/logger.js";
 
 function compute(rawBody, secret) {
   return crypto.createHmac("sha256", secret).update(rawBody).digest("base64");

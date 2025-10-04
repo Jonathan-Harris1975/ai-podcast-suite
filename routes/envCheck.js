@@ -1,4 +1,4 @@
-import { log } from "./logger.js";
+import { log } from "../utils/logger.js";
 
 const REQUIRED_GLOBAL = ["LOG_LEVEL","NODE_ENV","PORT","WEBHOOKS_ENABLED"];
 
