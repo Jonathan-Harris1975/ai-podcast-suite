@@ -1,0 +1,10 @@
+import { log } from "./logger.js";
+
+export function checkEnv(requiredVars = []) {
+  const missing = requiredVars.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    log.error({ missing }, "❌ Missing required environment variables");
+    process.exit(1); // 🔥 Fatal exit
+  }
+  log.info("✅ All required environment variables are set");
+}
