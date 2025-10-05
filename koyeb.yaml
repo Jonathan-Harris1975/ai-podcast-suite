@@ -1,0 +1,9 @@
+services:
+  rss-feed-creator:
+    build:
+      context: ./services/rss-feed-creator
+    env:
+      - key: RSS_FEED_CREATOR_PORT
+        value: 9200
+    routes:
+      - path: /

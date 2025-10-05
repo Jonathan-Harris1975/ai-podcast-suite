@@ -7,7 +7,9 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:rss-feed-creator": "node services/rss-feed-creator/index.js",
+    "dev:all": "echo \"Add concurrently to run multiple services\" && exit 0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.637.0",
@@ -36,5 +38,8 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.0.2"
-  }
+  },
+  "workspaces": [
+    "services/*"
+  ]
 }
