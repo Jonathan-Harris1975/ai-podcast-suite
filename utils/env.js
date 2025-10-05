@@ -14,12 +14,8 @@ const env = {
   APP_DESC: process.env.APP_DESC || "End-to-end orchestrator for podcast pipeline",
 
   WEBHOOKS_ENABLED: bool(process.env.WEBHOOKS_ENABLED, false),
-  WEBHOOK_SIGNATURE_MODE: process.env.WEBHOOK_SIGNATURE_MODE || "none",
-  HOOKDECK_WEBHOOK_SECRET: process.env.HOOKDECK_WEBHOOK_SECRET || "",
 
   DOWNSTREAM_WEBHOOKS_ENABLED: bool(process.env.DOWNSTREAM_WEBHOOKS_ENABLED, false),
-  DOWNSTREAM_WEBHOOK_SIGNATURE_MODE: process.env.DOWNSTREAM_WEBHOOK_SIGNATURE_MODE || "none",
-  DOWNSTREAM_WEBHOOK_SECRET: process.env.DOWNSTREAM_WEBHOOK_SECRET || "",
 
   SCRIPT_START_URL: process.env.SCRIPT_START_URL || "",
   ARTWORK_START_URL: process.env.ARTWORK_START_URL || "",
