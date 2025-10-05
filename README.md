@@ -6,7 +6,6 @@
 - `POST /clean-temp?sessionid={id}` (local temp only; no R2)
 
 **Webhooks**
-- Optional verification when `WEBHOOKS_ENABLED=true` and `HOOKDECK_WEBHOOK_SECRET` set.
 - Header: `x-hookdeck-signature` (HMAC SHA256 base64 of raw body).
 
 **Env**
