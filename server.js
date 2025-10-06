@@ -34,7 +34,7 @@ app.use(healthRouter);
 app.use(startRouter);
 app.use(cleanerRouter);
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 8080);
 app.listen(PORT, () => {
   log.info({ port: PORT }, "🚀 ai-podcast-suite running");
 });

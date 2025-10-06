@@ -1,46 +1,33 @@
-# AI Podcast Suite
+# AI Podcast Suite (Koyeb-Stable)
 
-Unified, modular Node.js monorepo configured for **Koyeb** with a **single Docker image** that can run any service via `SERVICE_NAME`.
-This README is intentionally neutral and deployment-focused.
+Unified Node.js monorepo: **Main AI Podcast Service** + **RSS Feed Creator** under one container, one port (8080).
 
-## Services
+## Routes
 
-- **Main Service** (`SERVICE_NAME=main`) — Orchestrator and API.
-- **RSS Feed Creator** (`SERVICE_NAME=rss-feed-creator`) — Builds/serves the RSS feed.
-
-All services use the same **`PORT`** environment variable (default `3000`).
-
-## Endpoints
-
-### Main Service
-| Method | Path | Source |
+### Main Service (mounted at `/`)
+| Method | Path | File |
 |---|---|---|
 | `GET` | `/` | `health.js` |
 | `POST` | `/` | `cleaner.js` |
 | `POST` | `/start/:sessionId` | `startProcess.js` |
 
-### RSS Feed Creator
-_All endpoints are mounted under `/api` within the service._
-| Method | Path | Source |
+### RSS Feed Creator (mounted at `/rss`)
+| Method | Path | File |
 |---|---|---|
 | `GET` | `/` | `rss.js` |
 | `POST` | `/rewrite` | `rewrite.js` |
 
 **Health:**
-- Main: `GET /health`
-- RSS Feed Creator: `GET /health`
+- `GET /` → "AI Podcast Suite Online"
+- `GET /health` → `{ ok: true }`
 
-## Deployment on Koyeb
+## Deploy to Koyeb
 
-This repo ships with a single root **Dockerfile** and a unified **koyeb.yaml**.
-Both services are deployed from the **same image**; select which one to run by setting `SERVICE_NAME`.
+- Koyeb auto-detects the Dockerfile
+- Exposes `PORT=8080`
+- Configure environment variables from `.env.example`
+- Single service runs both apps (no extra YAML needed)
 
-- Build context: `.`
-- `SERVICE_NAME`: `main` _or_ `rss-feed-creator`
-- `PORT`: shared by all services (default `3000`)
-
-### `koyeb.yaml` Summary
-- `ai-podcast-suite`: `SERVICE_NAME=main`, `PORT=3000`, route `/`
-- `rss-feed-creator`: `SERVICE_NAME=rss-feed-creator`, `PORT=3000`, route `/rss`
-
-> Tip: Configure all required secrets in Koyeb (R2 credentials, OpenRouter keys, etc.). Missing envs will be logged on boot.
+## Notes
+- Removed service-level Dockerfiles/YAMLs and root `koyeb.yaml`.
+- Both apps remain modular; mounted together for a single exposed HTTP port.
