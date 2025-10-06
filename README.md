@@ -1,16 +1,32 @@
-# AI Podcast Suite (Mono Service)
+# 🎙️ AI Podcast Suite
 
-**Endpoints**
-- `GET /health`
-- `POST /start?sessionid={id}`  (non-blocking)
-- `POST /clean-temp?sessionid={id}` (local temp only; no R2)
+Unified multi-service Node.js platform powering the **Turing Torch AI Podcast**, built by Jonathan Harris.
 
-**Webhooks**
-- Header: `x-hookdeck-signature` (HMAC SHA256 base64 of raw body).
+## 🧩 Services & Endpoints
 
-**Env**
-See `.env.example`. The service exits if required variables are missing.
+### 🧠 Main Service (Port 3000)
+| Endpoint | Description |
+|-----------|--------------|
+| `/health` | System health check |
+| `/start` | Begin main podcast script pipeline |
+| `/clean` | Clean cache or session data |
+| `/api/rewrite` | Rewrite fetched articles |
+| `/api/rss` | Serve compiled podcast feed |
 
-**Run**
-- Dockerfile provided (Node 22 Alpine)
-- Exposes `PORT` (default 3000)
+### 📰 RSS Feed Creator (Port 9200)
+| Endpoint | Description |
+|-----------|--------------|
+| `/health` | Health check |
+| `/api/rss` | Fetch and serve the generated RSS XML feed |
+| `/api/rewrite` | Trigger rewrite and regeneration pipeline |
+| `/api/rss/generate` | Manually trigger RSS generation |
+| `/data/rss.xml` | Fetch raw RSS XML file (if hosted) |
+
+### ⚙️ Deployment Notes
+- Single Docker image for all services.
+- `SERVICE_NAME` env var selects which service runs in container:
+  - `main` → runs primary AI Podcast Suite
+  - `rss-feed-creator` → runs RSS generator microservice
+
+### ☁️ Koyeb Deployment
+Two apps defined in `koyeb.yaml`, both using this unified Dockerfile.
