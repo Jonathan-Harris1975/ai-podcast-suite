@@ -14,7 +14,6 @@ COPY state.js ./
 COPY run.js ./
 COPY get-docker.sh ./
 COPY README.md ./
-COPY .env.example ./
 COPY LICENSE ./
 
 RUN npm install -g npm@10 && npm install --omit=dev
