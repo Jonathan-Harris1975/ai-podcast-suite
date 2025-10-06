@@ -1,5 +1,5 @@
 # ---------------------------------------------
-# 🧠 AI Podcast Suite – Koyeb Unified Dockerfile
+# 🧠 AI Podcast Suite – Shiper Unified Dockerfile
 # ---------------------------------------------
 FROM node:20-slim
 
@@ -20,6 +20,7 @@ RUN npm install -g npm@10 && npm install --omit=dev
 
 ENV NODE_ENV=production
 ENV PORT=8080
+
 EXPOSE 8080
 
 CMD ["node", "entrypoint.js"]
