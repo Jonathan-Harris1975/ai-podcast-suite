@@ -27,7 +27,7 @@ app.get("/health", (req, res) => {
 app.use("/api", rssRoutes);
 app.use("/api", rewriteRoutes);
 
-const PORT = process.env.RSS_FEED_CREATOR_PORT || 9200;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   log.info({ port: PORT }, "📰 RSS Feed Creator running");
 });
