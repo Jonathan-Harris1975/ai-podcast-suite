@@ -1,5 +1,11 @@
-import { log } from "../../utils/logger.js";
-export async function runTTS({ sessionId }) {
-  log.info({ sessionId }, "🔊 [TTS] start");
-  // TODO: connect to your existing TTS logic
-}
+// services/tts/index.js
+import { loadGoogleCredentials } from "./loadGoogleCreds.js";
+loadGoogleCredentials(); // 🔑 writes credentials JSON into /tmp for Google SDK
+
+import textToSpeech from "@google-cloud/text-to-speech";
+
+// Example usage or initialization
+const client = new textToSpeech.TextToSpeechClient();
+console.log("🔊 Google TTS client initialized successfully");
+
+export default client;
