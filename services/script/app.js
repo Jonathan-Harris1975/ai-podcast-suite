@@ -2,7 +2,7 @@ import express from 'express';
 import composeRouter from './routes/compose.js'; // Adjust if your path is different
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // 1. Body parser middleware for JSON (MUST be before routes)
 app.use(express.json());
