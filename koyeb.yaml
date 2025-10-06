@@ -1,9 +1,22 @@
 services:
-  rss-feed-creator:
+  ai-podcast-suite:
     build:
-      context: ./services/rss-feed-creator
+      context: .
     env:
-      - key: RSS_FEED_CREATOR_PORT
-        value: 9200
+      - key: SERVICE_NAME
+        value: main
+      - key: PORT
+        value: 3000
     routes:
       - path: /
+
+  rss-feed-creator:
+    build:
+      context: .
+    env:
+      - key: SERVICE_NAME
+        value: rss-feed-creator
+      - key: PORT
+        value: 3000
+    routes:
+      - path: /rss

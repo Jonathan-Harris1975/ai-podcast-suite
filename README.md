@@ -1,32 +1,46 @@
-# 🎙️ AI Podcast Suite
+# AI Podcast Suite
 
-Unified multi-service Node.js platform powering the **Turing Torch AI Podcast**, built by Jonathan Harris.
+Unified, modular Node.js monorepo configured for **Koyeb** with a **single Docker image** that can run any service via `SERVICE_NAME`.
+This README is intentionally neutral and deployment-focused.
 
-## 🧩 Services & Endpoints
+## Services
 
-### 🧠 Main Service (Port 3000)
-| Endpoint | Description |
-|-----------|--------------|
-| `/health` | System health check |
-| `/start` | Begin main podcast script pipeline |
-| `/clean` | Clean cache or session data |
-| `/api/rewrite` | Rewrite fetched articles |
-| `/api/rss` | Serve compiled podcast feed |
+- **Main Service** (`SERVICE_NAME=main`) — Orchestrator and API.
+- **RSS Feed Creator** (`SERVICE_NAME=rss-feed-creator`) — Builds/serves the RSS feed.
 
-### 📰 RSS Feed Creator (Port 9200)
-| Endpoint | Description |
-|-----------|--------------|
-| `/health` | Health check |
-| `/api/rss` | Fetch and serve the generated RSS XML feed |
-| `/api/rewrite` | Trigger rewrite and regeneration pipeline |
-| `/api/rss/generate` | Manually trigger RSS generation |
-| `/data/rss.xml` | Fetch raw RSS XML file (if hosted) |
+All services use the same **`PORT`** environment variable (default `3000`).
 
-### ⚙️ Deployment Notes
-- Single Docker image for all services.
-- `SERVICE_NAME` env var selects which service runs in container:
-  - `main` → runs primary AI Podcast Suite
-  - `rss-feed-creator` → runs RSS generator microservice
+## Endpoints
 
-### ☁️ Koyeb Deployment
-Two apps defined in `koyeb.yaml`, both using this unified Dockerfile.
+### Main Service
+| Method | Path | Source |
+|---|---|---|
+| `GET` | `/` | `health.js` |
+| `POST` | `/` | `cleaner.js` |
+| `POST` | `/start/:sessionId` | `startProcess.js` |
+
+### RSS Feed Creator
+_All endpoints are mounted under `/api` within the service._
+| Method | Path | Source |
+|---|---|---|
+| `GET` | `/` | `rss.js` |
+| `POST` | `/rewrite` | `rewrite.js` |
+
+**Health:**
+- Main: `GET /health`
+- RSS Feed Creator: `GET /health`
+
+## Deployment on Koyeb
+
+This repo ships with a single root **Dockerfile** and a unified **koyeb.yaml**.
+Both services are deployed from the **same image**; select which one to run by setting `SERVICE_NAME`.
+
+- Build context: `.`
+- `SERVICE_NAME`: `main` _or_ `rss-feed-creator`
+- `PORT`: shared by all services (default `3000`)
+
+### `koyeb.yaml` Summary
+- `ai-podcast-suite`: `SERVICE_NAME=main`, `PORT=3000`, route `/`
+- `rss-feed-creator`: `SERVICE_NAME=rss-feed-creator`, `PORT=3000`, route `/rss`
+
+> Tip: Configure all required secrets in Koyeb (R2 credentials, OpenRouter keys, etc.). Missing envs will be logged on boot.

@@ -1,9 +1,10 @@
-# -----------------------------
-# 🧠 AI Podcast Suite - Unified Dockerfile
-# -----------------------------
+# ---------------------------------------------
+# 🧠 AI Podcast Suite – Koyeb Unified Dockerfile
+# ---------------------------------------------
 FROM node:20-slim AS base
 
 WORKDIR /app
+
 COPY package*.json ./
 COPY services ./services
 COPY routes ./routes
@@ -20,19 +21,12 @@ RUN npm install -g npm@10 && npm install --omit=dev
 
 FROM node:20-slim AS runner
 WORKDIR /app
-COPY --from=base /app /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Select service at runtime (main or rss-feed-creator)
+COPY --from=base /app /app
+
 ARG SERVICE_NAME=main
 ENV SERVICE_NAME=${SERVICE_NAME}
 
-CMD node -e "\
-if (process.env.SERVICE_NAME === 'rss-feed-creator') { \
-  console.log('🚀 Starting RSS Feed Creator...'); \
-  import('./services/rss-feed-creator/index.js'); \
-} else { \
-  console.log('🚀 Starting AI Podcast Suite main service...'); \
-  import('./server.js'); \
-}"
+CMD node -e "if (process.env.SERVICE_NAME === 'rss-feed-creator') {   console.log('🚀 Starting RSS Feed Creator on PORT=' + (process.env.PORT || 3000));   import('./services/rss-feed-creator/index.js'); } else {   console.log('🚀 Starting AI Podcast Suite main service on PORT=' + (process.env.PORT || 3000));   import('./server.js'); }"
