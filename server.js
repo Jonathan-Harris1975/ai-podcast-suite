@@ -4,8 +4,8 @@ import helmet from "helmet";
 import cors from "cors";
 import { log } from "./utils/logger.js";
 
-import rssRoutes from "./routes/rss.js.js";
-import rewriteRoutes from "./routes/rewrite.js.js";
+import rssRoutes from "./routes/rss.js";
+import rewriteRoutes from "./routes/rewrite.js";
 
 const app = express();
 app.use(helmet());
