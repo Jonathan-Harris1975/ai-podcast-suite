@@ -2,6 +2,8 @@ FROM node:20-slim
 
 WORKDIR /app
 
+ARG CACHE_BREAKER=2025-10-07-0318
+
 COPY package*.json ./
 RUN npm install --omit=dev
 
