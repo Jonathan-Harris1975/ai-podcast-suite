@@ -19,7 +19,7 @@ router.post("/rewrite", async (req, res) => {
       pipeline = await import("../services/rewrite-pipeline.js");
     } catch {
       try {
-        pipeline = await import("../services/rss-feed-creator/services/rewrite-pipeline.js);
+        pipeline = await import("../services/rss-feed-creator/services/rewrite-pipeline.js");
       } catch {
         pipeline = null;
       }
