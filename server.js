@@ -18,6 +18,6 @@ app.use("/", rssRoutes);
 app.use("/api", rewriteRoutes);
 
 log.info("✅ Environment variables OK");
-log.info("🚀 ai-podcast-suite running");
+log.info("🚀 Main AI Podcast Service initialized");
 
 export default app;

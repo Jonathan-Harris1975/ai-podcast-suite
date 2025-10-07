@@ -9,7 +9,7 @@ app.get("/health", (_, res) => res.json({ ok: true }));
 let mainApp;
 let rssApp;
 
-// Dynamically import both services — works with CommonJS or ESM
+// Dynamic imports for ESM/CommonJS compatibility
 try {
   const mod = await import("./server.js");
   mainApp = mod.default || mod.app || mod.router || mod;
@@ -26,9 +26,8 @@ try {
   console.error("❌ Failed to import RSS service:", err.message);
 }
 
-// Helper: check if something looks like an Express app/router
-function looksLikeExpress(appLike) {
-  return appLike && (typeof appLike.use === "function" || typeof appLike.handle === "function");
+function looksLikeExpress(a) {
+  return a && (typeof a.use === "function" || typeof a.handle === "function");
 }
 
 if (looksLikeExpress(mainApp)) {
