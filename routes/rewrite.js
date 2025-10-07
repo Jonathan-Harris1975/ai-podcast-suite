@@ -1,6 +1,6 @@
 // routes/rewrite.js
 import express from "express";
-import { runRewritePipeline } from "../services/rewrite/rewrite-pipeline.js";
+import { runRewritePipeline } from "../services/rss-feed-creator/services/rewrite-pipeline.js";
 
 import { log } from "../utils/logger.js";
 
