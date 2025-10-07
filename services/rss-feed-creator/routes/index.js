@@ -1,11 +1,16 @@
+// services/rss-feed-creator/index.js
 import express from "express";
-import { log } from "../../../utils/logger.js";
+import cors from "cors";
+import { log } from "../../utils/logger.js";
+import routes from "./routes/index.js";
 
-const router = express.Router();
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-router.get("/", (req, res) => {
-  log.info("📰 RSS Feed Creator root route hit");
-  res.json({ ok: true, service: "rss-feed-creator" });
-});
+app.use("/", routes);
 
-export default router;
+log.info("✅ rss-feed-creator env OK");
+log.info("🚀 RSS Feed Creator Service initialized");
+
+export default app;
