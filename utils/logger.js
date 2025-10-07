@@ -1,23 +1,13 @@
-import pino from "pino";
-import pinoHttp from "pino-http";
-
-const level = process.env.LOG_LEVEL || "info";
-
-export const log = pino({
-  level,
-  base: undefined,
-  redact: { paths: ["req.headers.authorization", "req.headers.cookie"], remove: true },
-  transport: process.env.NODE_ENV === "production" ? undefined : {
-    target: "pino-pretty",
-    options: { colorize: true, translateTime: "SYS:standard" }
-  }
-});
-
-export const httpLogger = pinoHttp({
-  logger: log,
-  customLogLevel: (res, err) => {
-    if (err || res.statusCode >= 500) return "error";
-    if (res.statusCode >= 400) return "warn";
-    return "info";
-  }
-});
+// utils/logger.js
+const LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
+const COLORS = { error: "\x1b[31m", warn: "\x1b[33m", info: "\x1b[32m", debug: "\x1b[35m", reset: "\x1b[0m" };
+const envLevel = (process.env.LOG_LEVEL || "info").toLowerCase();
+const currentLevel = LEVELS[envLevel] ?? LEVELS.info;
+const ts = () => new Date().toISOString();
+const fmt = (level, msg) => `${COLORS[level] || ""}[${ts()}] ${level.toUpperCase()}:${COLORS.reset} ${msg}`;
+export const log = {
+  error: (msg, ...rest) => { if (LEVELS.error <= currentLevel) console.error(fmt("error", msg), ...rest); },
+  warn:  (msg, ...rest) => { if (LEVELS.warn  <= currentLevel) console.warn(fmt("warn", msg),  ...rest); },
+  info:  (msg, ...rest) => { if (LEVELS.info  <= currentLevel) console.log (fmt("info", msg),  ...rest); },
+  debug: (msg, ...rest) => { if (LEVELS.debug <= currentLevel) console.log (fmt("debug", msg), ...rest); },
+};
