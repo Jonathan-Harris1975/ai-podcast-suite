@@ -8,10 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Mount internal RSS routes
 app.use("/", routes);
 
 log.info("✅ rss-feed-creator env OK");
 
-// ✅ Export app (no .listen() call)
 export default app;
