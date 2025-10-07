@@ -2,7 +2,7 @@
 import express from "express";
 import { runRewritePipeline } from "../services/rss-feed-creator/services/rewrite-pipeline.js";
 
-import { log } from "../utils/logger.js";
+import { log } from "../services/rss-feed-creator/utils/logger.js";
 
 const router = express.Router();
 
