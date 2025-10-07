@@ -1,22 +1,54 @@
 // entrypoint.js
 import express from "express";
-import mainApp from "./server.js";
-import rssApp from "./services/rss-feed-creator/index.js";
 
 const app = express();
 
 app.get("/", (_, res) => res.send("AI Podcast Suite Online"));
 app.get("/health", (_, res) => res.json({ ok: true }));
 
-app.use("/", mainApp);
-app.use("/rss", rssApp);
+let mainApp;
+let rssApp;
+
+// Dynamically import both services — works with CommonJS or ESM
+try {
+  const mod = await import("./server.js");
+  mainApp = mod.default || mod.app || mod.router || mod;
+  console.log("✅ Loaded main service module:", Object.keys(mod));
+} catch (err) {
+  console.error("❌ Failed to import main service:", err.message);
+}
+
+try {
+  const mod = await import("./services/rss-feed-creator/index.js");
+  rssApp = mod.default || mod.app || mod.router || mod;
+  console.log("✅ Loaded RSS service module:", Object.keys(mod));
+} catch (err) {
+  console.error("❌ Failed to import RSS service:", err.message);
+}
+
+// Helper: check if something looks like an Express app/router
+function looksLikeExpress(appLike) {
+  return appLike && (typeof appLike.use === "function" || typeof appLike.handle === "function");
+}
+
+if (looksLikeExpress(mainApp)) {
+  app.use("/", mainApp);
+  console.log("🧠 Main Service mounted at: /");
+} else {
+  console.warn("⚠️ Main service not mountable (likely self-listening).");
+}
+
+if (looksLikeExpress(rssApp)) {
+  app.use("/rss", rssApp);
+  console.log("📰 RSS Feed Creator mounted at: /rss");
+} else {
+  console.warn("⚠️ RSS Feed Creator not mountable (likely self-listening).");
+}
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log("===========================================");
   console.log("🚀 AI Podcast Suite Unified Server Started");
-  console.log("🧠 Main Service mounted at: /");
-  console.log("📰 RSS Feed Creator mounted at: /rss");
   console.log(`✅ Listening on port: ${PORT}`);
   console.log("===========================================");
 });
