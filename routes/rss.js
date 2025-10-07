@@ -1,11 +1,13 @@
+// routes/rss.js
 import express from "express";
-import { getObject } from "../utils/r2-client.js";  // ✅ correct
+// ✅ Corrected import — point to the R2 client inside the RSS Feed Creator service
+import { getObject } from "../services/rss-feed-creator/utils/r2-client.js";
 
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const rss = await getObject("data/rss.xml");  // ✅ correct
+    const rss = await getObject("data/rss.xml");
     if (!rss) {
       res.status(404).send("RSS feed not found");
       return;
