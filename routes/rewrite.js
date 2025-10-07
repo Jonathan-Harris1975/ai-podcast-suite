@@ -1,21 +1,40 @@
 // routes/rewrite.js
 import express from "express";
-import { runRewritePipeline } from "../services/rss-feed-creator/services/rewrite-pipeline.js";
-
-import { log } from "../services/rss-feed-creator/utils/logger.js";
+import { log } from "../utils/logger.js";
 
 const router = express.Router();
 
-// POST /api/rewrite
 router.post("/rewrite", async (req, res) => {
+  log.info("✅ POST /api/rewrite received");
+  log.debug(`Headers: ${JSON.stringify(req.headers)}`);
+  let bodySize = 0;
   try {
-    log.info("✅ Webhook verified, triggering rewrite pipeline");
+    bodySize = JSON.stringify(req.body || {}).length;
+  } catch {}
+  log.debug(`Approx body size: ${bodySize} bytes`);
 
-    await runRewritePipeline();
+  try {
+    let pipeline;
+    try {
+      pipeline = await import("../services/rewrite-pipeline.js");
+    } catch {
+      try {
+        pipeline = await import("../services/rewrite/rewrite-pipeline.js");
+      } catch {
+        pipeline = null;
+      }
+    }
 
+    if (!pipeline || typeof pipeline.runRewritePipeline !== "function") {
+      log.warn("⚠️ runRewritePipeline not found. Skipping execution.");
+      return res.status(501).json({ ok: false, error: "rewrite pipeline not found" });
+    }
+
+    await pipeline.runRewritePipeline();
+    log.info("✅ Rewrite pipeline executed successfully");
     return res.json({ success: true, message: "Rewrite pipeline triggered" });
   } catch (err) {
-    log.error({ err }, "❌ Rewrite route error");
+    log.error(`❌ Rewrite route error: ${err?.message || err}`);
     return res.status(500).json({ error: "Rewrite pipeline failed" });
   }
 });

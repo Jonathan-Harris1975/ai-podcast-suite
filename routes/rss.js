@@ -1,21 +1,24 @@
 // routes/rss.js
 import express from "express";
-// ✅ Corrected import — point to the R2 client inside the RSS Feed Creator service
+import { log } from "../utils/logger.js";
 import { getObject } from "../services/rss-feed-creator/utils/r2-client.js";
 
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
+    log.debug("📡 GET /rss requested");
     const rss = await getObject("data/rss.xml");
     if (!rss) {
+      log.warn("RSS feed not found at data/rss.xml");
       res.status(404).send("RSS feed not found");
       return;
     }
     res.set("Content-Type", "application/rss+xml; charset=utf-8");
+    log.info(`📰 RSS feed served (length: ${typeof rss === "string" ? rss.length : (rss?.length || 0)} bytes)`);
     res.send(rss);
   } catch (err) {
-    console.error("❌ Error fetching RSS:", err);
+    log.error(`❌ Error fetching RSS: ${err?.message || err}`);
     res.status(500).send("Internal server error");
   }
 });
