@@ -2,7 +2,7 @@
 import express from "express";
 import cors from "cors";
 import { log } from "../../utils/logger.js";
-import routes from "./routes/index.js.js";
+import routes from "./routes/index.js";
 
 const app = express();
 app.use(cors());
