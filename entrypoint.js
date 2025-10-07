@@ -9,7 +9,7 @@ app.get("/health", (_, res) => res.json({ ok: true }));
 let mainApp;
 let rssApp;
 
-// Dynamic imports for ESM/CommonJS compatibility
+// Dynamic imports for flexibility (ESM or CJS)
 try {
   const mod = await import("./server.js");
   mainApp = mod.default || mod.app || mod.router || mod;
