@@ -1,5 +1,6 @@
 // entrypoint.js
 import express from "express";
+import { log } from "./utils/logger.js";
 
 const app = express();
 
@@ -9,21 +10,20 @@ app.get("/health", (_, res) => res.json({ ok: true }));
 let mainApp;
 let rssApp;
 
-// Dynamic imports for flexibility (ESM or CJS)
 try {
   const mod = await import("./server.js");
   mainApp = mod.default || mod.app || mod.router || mod;
-  console.log("✅ Loaded main service module:", Object.keys(mod));
+  log.info(`✅ Loaded main service module keys: ${Object.keys(mod).join(",")}`);
 } catch (err) {
-  console.error("❌ Failed to import main service:", err.message);
+  log.error(`❌ Failed to import main service: ${err.message}`);
 }
 
 try {
   const mod = await import("./services/rss-feed-creator/index.js");
   rssApp = mod.default || mod.app || mod.router || mod;
-  console.log("✅ Loaded RSS service module:", Object.keys(mod));
+  log.info(`✅ Loaded RSS service module keys: ${Object.keys(mod).join(",")}`);
 } catch (err) {
-  console.error("❌ Failed to import RSS service:", err.message);
+  log.error(`❌ Failed to import RSS service: ${err.message}`);
 }
 
 function looksLikeExpress(a) {
@@ -32,22 +32,22 @@ function looksLikeExpress(a) {
 
 if (looksLikeExpress(mainApp)) {
   app.use("/", mainApp);
-  console.log("🧠 Main Service mounted at: /");
+  log.info("🧠 Main Service mounted at: /");
 } else {
-  console.warn("⚠️ Main service not mountable (likely self-listening).");
+  log.warn("⚠️ Main service not mountable (likely self-listening).");
 }
 
 if (looksLikeExpress(rssApp)) {
   app.use("/rss", rssApp);
-  console.log("📰 RSS Feed Creator mounted at: /rss");
+  log.info("📰 RSS Feed Creator mounted at: /rss");
 } else {
-  console.warn("⚠️ RSS Feed Creator not mountable (likely self-listening).");
+  log.warn("⚠️ RSS Feed Creator not mountable (likely self-listening).");
 }
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log("===========================================");
-  console.log("🚀 AI Podcast Suite Unified Server Started");
-  console.log(`✅ Listening on port: ${PORT}`);
-  console.log("===========================================");
+  log.info("===========================================");
+  log.info("🚀 AI Podcast Suite Unified Server Started");
+  log.info(`✅ Listening on port: ${PORT}`);
+  log.info("===========================================");
 });
