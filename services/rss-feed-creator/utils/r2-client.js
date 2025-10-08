@@ -65,31 +65,19 @@ export async function verifyBucket() {
   return true;
 }
 
-// --- Runtime Presigner Loader via File URL ---
+/**
+ * 100 % safe presigner loader — never statically references AWS package.
+ */
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
-  const presignerPath = pathToFileURL(
-    path.resolve(__dirname, "./presigner-loader.js")
+  const presignerFile = pathToFileURL(
+    path.join(__dirname, "presigner-loader.js")
   ).href;
 
-  let loader = null;
   try {
-    loader = await import(presignerPath);
+    const loader = await import(presignerFile);
+    return await loader.getSignedUrl(r2Client, bucket, key, expiresIn);
   } catch (err) {
-    log.warn(`⚙️ Presigner loader unavailable: ${err.message}`);
-    return null;
-  }
-
-  if (!loader?.getSignedUrl) {
-    log.warn("⚙️ Presigner not available – safe mode active.");
-    return null;
-  }
-
-  try {
-    const url = await loader.getSignedUrl(r2Client, bucket, key, expiresIn);
-    log.info(`🔗 Generated signed URL for ${key}`);
-    return url;
-  } catch (err) {
-    log.error(`❌ Failed to generate signed URL for ${key}: ${err.message}`);
+    log.warn(`⚙️ Presigner loader not found or failed: ${err.message}`);
     return null;
   }
 }
