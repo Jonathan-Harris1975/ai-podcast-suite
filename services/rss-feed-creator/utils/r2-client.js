@@ -6,6 +6,7 @@ import {
   ListObjectsV2Command,
   HeadBucketCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { log } from "../../../utils/logger.js";
 
 // ---------------- Configuration ----------------
@@ -77,26 +78,9 @@ export async function verifyBucket() {
   return true;
 }
 
-// ---------------- Safe Presigned URL Generator ----------------
-// This version cannot crash even if '@aws-sdk/s3-request-presigner' is missing.
+// ---------------- Presigned URL Generator ----------------
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
-  const pkg = "@aws-sdk/s3-request-presigner"; // hide name from ESM pre-resolve
-  let presigner = null;
-
   try {
-    // Prevent Node from pre-resolving; load dynamically
-    presigner = await import(pkg).catch(() => null);
-  } catch {
-    presigner = null;
-  }
-
-  if (!presigner || typeof presigner.getSignedUrl !== "function") {
-    log.warn("⚙️ Presigner not installed – safe mode active.");
-    return null; // gracefully skip
-  }
-
-  try {
-    const { getSignedUrl } = presigner;
     const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
     const url = await getSignedUrl(r2Client, cmd, { expiresIn });
     log.info(`🔗 Generated signed URL for ${key}`);
