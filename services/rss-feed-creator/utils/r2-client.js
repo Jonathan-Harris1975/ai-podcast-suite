@@ -6,7 +6,6 @@ import {
   ListObjectsV2Command,
   HeadBucketCommand,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { log } from "../../../utils/logger.js";
 
 const endpoint = process.env.R2_ENDPOINT;
@@ -82,8 +81,33 @@ export async function verifyBucket() {
   return true;
 }
 
-// ✅ Optional: generate temporary signed URL
+// ---------------- Optional: Safe Presigned URL Generator ----------------
+
+// Dynamically import presigner if available
+let getSignedUrl = null;
+try {
+  const presigner = await import("@aws-sdk/s3-request-presigner");
+  getSignedUrl = presigner.getSignedUrl;
+  log.info("🔐 @aws-sdk/s3-request-presigner loaded successfully.");
+} catch {
+  log.warn(
+    "⚠️ Optional dependency '@aws-sdk/s3-request-presigner' not found – presigned URLs disabled."
+  );
+}
+
+// Safe wrapper for generating presigned URLs
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
-  const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
-  return await getSignedUrl(r2Client, cmd, { expiresIn });
-    }
+  if (!getSignedUrl) {
+    throw new Error(
+      "Presigner module not available – cannot generate signed URL. Install '@aws-sdk/s3-request-presigner' to enable this feature."
+    );
+  }
+
+  try {
+    const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
+    const url = await getSignedUrl(r2Client, cmd, { expiresIn });
+    return url;
+  } catch (err) {
+    throw new Error(`Failed to generate signed URL for ${key}: ${err.message}`);
+  }
+}
