@@ -6,10 +6,6 @@ import {
   HeadBucketCommand,
 } from "@aws-sdk/client-s3";
 import { log } from "../../../utils/logger.js";
-import { fileURLToPath, pathToFileURL } from "url";
-import path from "path";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const endpoint = process.env.R2_ENDPOINT;
 const region = process.env.R2_REGION || "auto";
@@ -26,8 +22,6 @@ export const r2Client = new S3Client({
   endpoint,
   credentials: { accessKeyId, secretAccessKey },
 });
-
-log.info(`☁️ Connected to Cloudflare R2 bucket: ${bucket}`);
 
 async function streamToString(stream) {
   const chunks = [];
@@ -65,19 +59,8 @@ export async function verifyBucket() {
   return true;
 }
 
-/**
- * 100 % safe presigner loader — never statically references AWS package.
- */
+// Placeholder until presigner is actually installed
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
-  const presignerFile = pathToFileURL(
-    path.join(__dirname, "presigner-loader.js")
-  ).href;
-
-  try {
-    const loader = await import(presignerFile);
-    return await loader.getSignedUrl(r2Client, bucket, key, expiresIn);
-  } catch (err) {
-    log.warn(`⚙️ Presigner loader not found or failed: ${err.message}`);
-    return null;
-  }
+  log.warn("⚙️ Presigner functionality disabled – returning null.");
+  return null;
 }
