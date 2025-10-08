@@ -5,7 +5,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "npm install chalk@5.3.0 --no-audit --no-fund || true"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.634.0",
