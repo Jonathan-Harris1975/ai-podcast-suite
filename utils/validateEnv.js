@@ -2,6 +2,10 @@
 import process from "process";
 import chalk from "chalk";
 
+/**
+ * Validate that all required environment variables exist.
+ * Also summarize R2 bucket configuration for visibility.
+ */
 export function validateEnv() {
   const required = [
     "R2_ENDPOINT",
@@ -28,13 +32,38 @@ export function validateEnv() {
       console.log(chalk.red(`❌ Missing: ${key}`));
       missing.push(key);
     } else {
-      console.log(chalk.green(`✅ ${key} = ${val.startsWith("https") ? val : "[OK]"}`));
+      console.log(
+        chalk.green(
+          `✅ ${key} = ${
+            val.startsWith("https") ? val : "[OK]"
+          }`
+        )
+      );
       if (key.startsWith("R2_BUCKET_")) r2Buckets.push(val);
     }
   }
 
   if (missing.length) {
     console.error(
+      chalk.redBright(
+        `\n🚨 Missing ${missing.length} critical environment variable(s): ${missing.join(", ")}`
+      )
+    );
+    process.exit(1);
+  }
+
+  console.log(chalk.greenBright("\n✅ Environment validation passed\n"));
+
+  // Display R2 summary table
+  console.log(chalk.magentaBright("🌐 Cloudflare R2 Configuration"));
+  console.log(chalk.magentaBright("───────────────────────────────"));
+
+  for (const bucket of r2Buckets) {
+    console.log(chalk.cyanBright(`📦 ${bucket}`));
+  }
+
+  console.log(chalk.greenBright("\n✅ Environment validation complete\n"));
+}    console.error(
       chalk.redBright(
         `\n🚨 Missing ${missing.length} critical environment variable(s): ${missing.join(", ")}`
       )
