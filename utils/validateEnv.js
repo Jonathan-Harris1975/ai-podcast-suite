@@ -1,10 +1,30 @@
 // utils/validateEnv.js
 import process from "process";
-import chalk from "chalk";
+
+let chalk;
+
+// ✅ Graceful dynamic import with fallback (for Shiper, Docker, etc.)
+try {
+  const chalkModule = await import("chalk");
+  chalk = chalkModule.default;
+} catch {
+  // Minimal fallback if chalk is missing
+  chalk = {
+    cyanBright: (s) => s,
+    red: (s) => s,
+    redBright: (s) => s,
+    green: (s) => s,
+    greenBright: (s) => s,
+    magentaBright: (s) => s,
+    cyan: (s) => s,
+  };
+  console.warn(
+    "⚠️  'chalk' not found. Run `npm install chalk` for colored output."
+  );
+}
 
 /**
- * Validate that all required environment variables exist.
- * Also summarize R2 bucket configuration for visibility.
+ * Validate required environment variables and summarize R2 configuration.
  */
 export function validateEnv() {
   const required = [
@@ -19,7 +39,7 @@ export function validateEnv() {
     "OPENROUTER_API_KEY",
     "LOG_LEVEL",
     "NODE_ENV",
-    "PORT"
+    "PORT",
   ];
 
   console.log(chalk.cyanBright("🧩 Validating environment variables..."));
@@ -52,7 +72,7 @@ export function validateEnv() {
 
   console.log(chalk.greenBright("\n✅ Environment validation passed\n"));
 
-  // Display R2 summary table
+  // Display R2 summary
   console.log(chalk.magentaBright("🌐 Cloudflare R2 Configuration"));
   console.log(chalk.magentaBright("───────────────────────────────"));
 
