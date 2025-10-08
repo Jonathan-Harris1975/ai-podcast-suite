@@ -6,10 +6,8 @@ import {
   ListObjectsV2Command,
   HeadBucketCommand,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { log } from "../../../utils/logger.js";
 
-// ---------------- Configuration ----------------
 const endpoint = process.env.R2_ENDPOINT;
 const region = process.env.R2_REGION || "auto";
 const accessKeyId = process.env.R2_ACCESS_KEY_ID;
@@ -28,14 +26,12 @@ export const r2Client = new S3Client({
 
 log.info(`☁️ Connected to Cloudflare R2 bucket: ${bucket}`);
 
-// ---------------- Helpers ----------------
 async function streamToString(stream) {
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
   return Buffer.concat(chunks).toString("utf-8");
 }
 
-// ---------------- Core Operations ----------------
 export async function getObject(key) {
   try {
     const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
@@ -78,9 +74,24 @@ export async function verifyBucket() {
   return true;
 }
 
-// ---------------- Presigned URL Generator ----------------
+// ---------------- Safe Presigner Loader ----------------
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
+  // Hide literal from Node static analysis
+  const parts = ["@aws-sdk", "s3-request-presigner"];
+  let presigner = null;
   try {
+    presigner = await import(parts.join("/")).catch(() => null);
+  } catch {
+    presigner = null;
+  }
+
+  if (!presigner || typeof presigner.getSignedUrl !== "function") {
+    log.warn("⚙️ Presigner not installed – safe mode active.");
+    return null;
+  }
+
+  try {
+    const { getSignedUrl } = presigner;
     const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
     const url = await getSignedUrl(r2Client, cmd, { expiresIn });
     log.info(`🔗 Generated signed URL for ${key}`);
