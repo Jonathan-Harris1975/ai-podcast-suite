@@ -1,7 +1,8 @@
 // /services/rss-feed-creator/services/rewrite-pipeline.js
 import fetch from "node-fetch";
 import Parser from "rss-parser";
-import { log } from "../utils/logger.js";
+import { log } from "../../../utils/logger.js";
+
 import { getObject, putJson } from "../utils/r2-client.js";
 import { callOpenRouterModel } from "../utils/models.js";
 import { rebuildRss } from "./build-rss.js";
