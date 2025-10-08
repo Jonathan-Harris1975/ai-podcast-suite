@@ -1,9 +1,29 @@
-// utils/logger.js
-import pino from "pino";
+import winston from "winston";
+import chalk from "chalk";
 
-export const log = pino({
-  level: process.env.LOG_LEVEL || "info",
-  transport: process.env.NODE_ENV === "development"
-    ? { target: "pino-pretty" }
-    : undefined,
+const levelColors = {
+  error: chalk.red.bold,
+  warn: chalk.yellow.bold,
+  info: chalk.cyanBright,
+  debug: chalk.gray,
+};
+
+const timestamp = winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" });
+const logFormat = winston.format.printf(({ level, message, timestamp }) => {
+  const colorizer = levelColors[level] || ((txt) => txt);
+  return `${chalk.dim(timestamp)} ${colorizer(level.toUpperCase())} ${message}`;
 });
+
+export const log = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: winston.format.combine(timestamp, logFormat),
+  transports: [new winston.transports.Console({ handleExceptions: true })],
+  exitOnError: false,
+});
+
+export const info = (msg) => log.info(msg);
+export const warn = (msg) => log.warn(msg);
+export const error = (msg) => log.error(msg);
+export const debug = (msg) => log.debug(msg);
+
+log.info("🧠 Logger initialized and colorized output enabled.");
