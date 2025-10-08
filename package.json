@@ -5,8 +5,9 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
-  },
+  "prestart": "echo '🧹 Cleaning Shiper runtime...' && rm -rf node_modules package-lock.json && npm cache clean --force && npm install --omit=dev && node -e \"try{require.resolve('chalk');console.error('⚠️  Chalk still exists! Cached layer detected.')}catch{console.log('✅  No chalk detected. Clean Shiper build confirmed.')}\"",
+  "start": "node server.js"
+}
   "dependencies": {
     "@aws-sdk/client-s3": "3.634.0",
     "@aws-sdk/lib-storage": "3.634.0",
