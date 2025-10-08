@@ -1,30 +1,48 @@
 // services/bootstrap.js
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { log } from "../utils/logger.js";
 import { getObject, putText, putJson } from "./rss-feed-creator/utils/r2-client.js";
+
+// __dirname workaround for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function bootstrapR2() {
   log.info("🧩 Running R2 bootstrap check...");
 
-  // Locate local data directory
-  const dataDir = path.resolve("./services/rss-feed-creator/data");
+  // Try multiple data directories (local & deployed)
+  const candidateDirs = [
+    path.resolve(__dirname, "../rss-feed-creator/data"), // local dev
+    path.resolve(__dirname, "../../ai-podcast-suite-main/services/rss-feed-creator/data"), // Shiper container
+    path.resolve("/app/ai-podcast-suite-main/services/rss-feed-creator/data"), // explicit absolute
+  ];
 
-  // Utility to read a local file safely
+  let dataDir = candidateDirs.find((dir) => fs.existsSync(dir));
+  if (!dataDir) {
+    log.warn("⚠️ Could not locate local data directory for feeds.txt / urls.txt");
+    return;
+  }
+
+  log.info(`📂 Using data directory: ${dataDir}`);
+
+  // Helper to safely read a local file
   const readLocalFile = (filename) => {
     const filePath = path.join(dataDir, filename);
     if (!fs.existsSync(filePath)) {
       log.warn(`⚠️ Local seed file not found: ${filename}`);
       return "";
     }
-    return fs.readFileSync(filePath, "utf-8");
+    const data = fs.readFileSync(filePath, "utf-8");
+    log.info(`📖 Loaded ${filename} (${data.length} bytes)`);
+    return data;
   };
 
-  // Local file contents
   const localFeeds = readLocalFile("feeds.txt");
   const localUrls = readLocalFile("urls.txt");
 
-  // Helper to seed R2 file if missing or empty
+  // Seed text file if missing or empty in R2
   async function ensureTextFile(key, localContent) {
     try {
       const existing = await getObject(key);
@@ -42,7 +60,7 @@ export async function bootstrapR2() {
     }
   }
 
-  // Ensure JSON cursor
+  // Ensure JSON cursor file
   async function ensureCursorFile() {
     try {
       const existing = await getObject("cursor.json");
@@ -61,7 +79,7 @@ export async function bootstrapR2() {
     }
   }
 
-  // Perform bootstrap
+  // Execute
   await ensureTextFile("feeds.txt", localFeeds);
   await ensureTextFile("urls.txt", localUrls);
   await ensureCursorFile();
