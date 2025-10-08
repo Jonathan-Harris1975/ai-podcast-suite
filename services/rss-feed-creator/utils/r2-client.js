@@ -62,7 +62,7 @@ export async function putText(key, content) {
   }
 }
 
-// ✅ List objects (optional)
+// ✅ List objects
 export async function listObjects(prefix = "") {
   try {
     const cmd = new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix });
@@ -81,25 +81,19 @@ export async function verifyBucket() {
   return true;
 }
 
-// ---------------- Optional: Safe Presigned URL Generator ----------------
-
-// Dynamically import presigner if available
-let getSignedUrl = null;
-try {
-  const presigner = await import("@aws-sdk/s3-request-presigner");
-  getSignedUrl = presigner.getSignedUrl;
-  log.info("🔐 @aws-sdk/s3-request-presigner loaded successfully.");
-} catch {
-  log.warn(
-    "⚠️ Optional dependency '@aws-sdk/s3-request-presigner' not found – presigned URLs disabled."
-  );
-}
-
-// Safe wrapper for generating presigned URLs
+// ---------------- Safe Presigned URL Generator ----------------
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
-  if (!getSignedUrl) {
+  let getSignedUrl;
+  try {
+    const presigner = await import("@aws-sdk/s3-request-presigner");
+    getSignedUrl = presigner.getSignedUrl;
+    log.info("🔐 Presigner loaded successfully.");
+  } catch {
+    log.warn(
+      "⚠️ Optional dependency '@aws-sdk/s3-request-presigner' not found – presigned URLs disabled."
+    );
     throw new Error(
-      "Presigner module not available – cannot generate signed URL. Install '@aws-sdk/s3-request-presigner' to enable this feature."
+      "Presigner module missing – cannot generate signed URL. Install '@aws-sdk/s3-request-presigner' if needed."
     );
   }
 
@@ -110,4 +104,4 @@ export async function getSignedUrlForKey(key, expiresIn = 3600) {
   } catch (err) {
     throw new Error(`Failed to generate signed URL for ${key}: ${err.message}`);
   }
-}
+      
