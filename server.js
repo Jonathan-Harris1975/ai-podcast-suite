@@ -1,35 +1,42 @@
 // server.js
 import express from "express";
-import cors from "cors";
-import { log } from "./utils/logger.js";  // ✅ Fixed import path
+import compression from "compression";
+import helmet from "helmet";
+import dotenv from "dotenv";
+import chalk from "chalk";
+import { validateEnv } from "./utils/validateEnv.js";
 
-import rewriteRoutes from "./routes/rewrite.js";
-import rssRoutes from "./routes/rss.js";
+// Load .env first
+dotenv.config();
 
+// Run environment validation before boot
+try {
+  console.log(chalk.cyanBright("\n🔍 Running startup environment validation...\n"));
+  validateEnv();
+} catch (err) {
+  console.error(chalk.redBright(`\n❌ Environment validation failed:\n${err.message}\n`));
+  process.exit(1);
+}
+
+// Initialize Express
 const app = express();
+app.use(helmet());
+app.use(compression());
+app.use(express.json());
 
-// Middleware
-app.use(cors());
-app.use(express.json({ strict: false, limit: "1mb", type: "*/*" }));
-
-// Simple request logger
-app.use((req, _res, next) => {
-  try {
-    log.info(`${req.method} ${req.originalUrl}`);
-  } catch {
-    console.log(`${req.method} ${req.originalUrl}`);
-  }
-  next();
+// Simple healthcheck route for Shiper container monitoring
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
 });
 
-// Routes
-app.use("/api", rewriteRoutes);
-app.use("/rss", rssRoutes);
-
-// Health check route
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString() });
+// Root endpoint
+app.get("/", (req, res) => {
+  res.send("🚀 AI Podcast Suite is running successfully on Shiper!");
 });
 
-// Export app — no listen() here
-export default app;
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(chalk.greenBright(`\n✅ Server is live on port ${PORT}`));
+  console.log(chalk.magentaBright(`🌐 Healthcheck: http://localhost:${PORT}/health\n`));
+});
