@@ -4,7 +4,7 @@ import path from "path";
 import pLimit from "p-limit";
 import fetch from "node-fetch";
 import ffmpeg from "fluent-ffmpeg";
-import { log } from "./logger.js";
+import { log } from "../../../utils/logger.js";
 import { R2_BUCKETS, uploadBuffer } from "./r2-client.js";
 import { getTextChunkUrls } from "./textchunksR2.js";
 

@@ -1,5 +1,5 @@
 import fetch from "node-fetch";
-import { log } from "./logger.js";
+import { log } from "../../../utils/logger.js";
 
 export async function postWebhook(name, payload) {
   const url = process.env[name];

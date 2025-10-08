@@ -5,7 +5,7 @@ import path from "path";
 import { execFile } from "child_process";
 import ffmpegPath from "ffmpeg-static";
 import ffprobe from "ffprobe-static";
-import { log } from "./logger.js";
+import { log } from "../../../utils/logger.js";
 import { listKeys, downloadToFile, uploadBuffer, buildPublicUrl, R2_BUCKETS } from "./r2-client.js";
 
 function runFFmpeg(args) {

@@ -1,5 +1,5 @@
 import { R2_BUCKETS, listKeys, buildPublicUrl } from "./r2-client.js";
-import { log } from "./logger.js";
+import { log } from "../../../utils/logger.js";
 
 export async function getTextChunkUrls(sessionId) {
   const prefix = `${sessionId}/`;

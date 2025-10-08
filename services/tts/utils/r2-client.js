@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
-import { log } from "./logger.js";
+import { log } from "../../../utils/logger.js";
 
 const endpoint =
   process.env.R2_ENDPOINT ||
