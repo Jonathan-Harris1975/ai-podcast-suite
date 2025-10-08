@@ -6,11 +6,15 @@ import { fileURLToPath } from "url";
 
 const router = express.Router();
 
+// --- Dynamic import fix ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ dynamically resolve correct service path
-const pipelinePath = path.resolve(__dirname, "../services/rss-feed-creator/services/rewrite-pipeline.js");
+// Try resolving the pipeline relative to the project root
+const pipelinePath = path.resolve(
+  __dirname,
+  "../../services/rss-feed-creator/services/rewrite-pipeline.js"
+);
 
 let runRewritePipeline;
 try {
@@ -21,19 +25,21 @@ try {
   log.error(`❌ Failed to import rewrite pipeline: ${err.message}`);
 }
 
-router.post("/rewrite", async (req, res) => {
+// --- POST /api/rewrite endpoint ---
+router.post("/", async (req, res) => {
   log.info("✅ POST /api/rewrite received");
+
   if (typeof runRewritePipeline !== "function") {
     log.warn("⚠️ runRewritePipeline not found. Skipping execution.");
-    return res.status(501).json({ error: "Rewrite pipeline missing" });
+    return res.status(501).json({ error: "rewrite pipeline not found" });
   }
 
   try {
-    await runRewritePipeline();
-    log.info("✅ Rewrite pipeline executed successfully");
-    res.json({ success: true });
+    const result = await runRewritePipeline();
+    log.info(`✅ Rewrite pipeline executed successfully: ${JSON.stringify(result)}`);
+    res.json({ ok: true, result });
   } catch (err) {
-    log.error(`❌ Rewrite pipeline failed: ${err.message}`);
+    log.error(`❌ Rewrite route error: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
