@@ -5,9 +5,10 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import chalk from "chalk";
 import fetch from "node-fetch";
+import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 import { validateEnv } from "./utils/validateEnv.js";
 
-// Load environment variables first
+// Load environment variables
 dotenv.config();
 
 // Retry configuration
@@ -30,7 +31,34 @@ async function pingR2Endpoint() {
   }
 }
 
-// ---------------- Helper: Validate + Ping with Retry ----------------
+// ---------------- Helper: Verify R2 Bucket Exists ----------------
+async function verifyR2Bucket() {
+  const endpoint = process.env.R2_ENDPOINT;
+  const region = process.env.R2_REGION || "auto";
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const bucket = process.env.R2_BUCKET_RSS_FEEDS || "rss-feeds";
+
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error("Missing R2_ACCESS_KEY_ID or R2_SECRET_ACCESS_KEY");
+  }
+
+  const s3 = new S3Client({
+    region,
+    endpoint,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  try {
+    const command = new HeadBucketCommand({ Bucket: bucket });
+    await s3.send(command);
+    console.log(chalk.greenBright(`📦 Verified R2 bucket exists: ${bucket}`));
+  } catch (err) {
+    throw new Error(`Cannot access R2 bucket "${bucket}": ${err.message}`);
+  }
+}
+
+// ---------------- Helper: Validate + Ping + Verify with Retry ----------------
 async function tryValidateEnvWithRetry() {
   let attempt = 1;
   while (attempt <= RETRY_LIMIT) {
@@ -42,11 +70,15 @@ async function tryValidateEnvWithRetry() {
       // Validate environment variables
       validateEnv();
 
-      // Check Cloudflare R2 connectivity
+      // Ping R2 endpoint
       console.log(chalk.cyanBright("🌐 Pinging Cloudflare R2 endpoint..."));
       await pingR2Endpoint();
 
-      console.log(chalk.greenBright("✅ Environment + R2 validation succeeded.\n"));
+      // Verify R2 bucket exists
+      console.log(chalk.cyanBright("🪣 Verifying R2 bucket accessibility..."));
+      await verifyR2Bucket();
+
+      console.log(chalk.greenBright("✅ Environment, R2 endpoint, and bucket validation succeeded.\n"));
       return true;
     } catch (err) {
       console.error(
@@ -68,7 +100,7 @@ async function tryValidateEnvWithRetry() {
   }
 }
 
-// Run pre-flight validation before booting the server
+// ---------------- Run pre-flight checks ----------------
 await tryValidateEnvWithRetry();
 
 // ---------------- Express App ----------------
