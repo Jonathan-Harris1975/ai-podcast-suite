@@ -1,5 +1,5 @@
 import fs from "fs";
-import { log } from "./logger.js";
+import { log } from "../../../utils/logger.js";
 
 /**
  * Load and sanitize a list of URLs from a file.
