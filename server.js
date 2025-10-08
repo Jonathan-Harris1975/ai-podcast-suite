@@ -1,23 +1,35 @@
 // server.js
 import express from "express";
-import helmet from "helmet";
 import cors from "cors";
-import { log } from "utils/logger.js";
+import { log } from "./utils/logger.js";  // ✅ Fixed import path
 
-import rssRoutes from "./routes/rss.js";
 import rewriteRoutes from "./routes/rewrite.js";
+import rssRoutes from "./routes/rss.js";
 
 const app = express();
-app.use(helmet());
+
+// Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ strict: false, limit: "1mb", type: "*/*" }));
 
-app.get("/health", (req, res) => res.json({ ok: true }));
+// Simple request logger
+app.use((req, _res, next) => {
+  try {
+    log.info(`${req.method} ${req.originalUrl}`);
+  } catch {
+    console.log(`${req.method} ${req.originalUrl}`);
+  }
+  next();
+});
 
-app.use("/", rssRoutes);
+// Routes
 app.use("/api", rewriteRoutes);
+app.use("/rss", rssRoutes);
 
-log.info("✅ Environment variables OK");
-log.info("🚀 Main AI Podcast Service initialized");
+// Health check route
+app.get("/health", (_req, res) => {
+  res.json({ ok: true, timestamp: new Date().toISOString() });
+});
 
+// Export app — no listen() here
 export default app;
