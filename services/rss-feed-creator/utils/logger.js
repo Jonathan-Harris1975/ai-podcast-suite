@@ -1,11 +1,5 @@
 import winston from "winston";
 
-const levelColors = {
-  error: chalk.red.bold,
-  warn: chalk.yellow.bold,
-  info: chalk.cyanBright,
-  debug: chalk.gray,
-};
 
 const timestamp = winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" });
 const logFormat = winston.format.printf(({ level, message, timestamp }) => {
