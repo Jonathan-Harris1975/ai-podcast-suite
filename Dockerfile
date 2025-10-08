@@ -1,16 +1,23 @@
-FROM node:20-slim
+# ---------- Stage 1: build layer ----------
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+
+# ---------- Stage 2: runtime layer ----------
+FROM node:20-alpine
 WORKDIR /app
 
-ARG CACHE_BREAKER=2025-10-07-0458
+# Copy production dependencies only
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app .
 
-COPY package*.json ./
-RUN npm install --omit=dev
+# Shiper automatically sets NODE_ENV=production
+ENV NODE_ENV=production
+ENV PORT=3000
 
-COPY utils ./utils
-COPY routes ./routes
-COPY services ./services
-COPY server.js ./server.js
-COPY entrypoint.js ./entrypoint.js
+# Expose the app port
+EXPOSE 3000
 
-EXPOSE 8080
-CMD ["node", "entrypoint.js"]
+CMD ["npm", "start"]
