@@ -1,4 +1,3 @@
-// services/rss-feed-creator/utils/r2-client.js
 import {
   S3Client,
   GetObjectCommand,
@@ -7,6 +6,10 @@ import {
   HeadBucketCommand,
 } from "@aws-sdk/client-s3";
 import { log } from "../../../utils/logger.js";
+import { fileURLToPath, pathToFileURL } from "url";
+import path from "path";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const endpoint = process.env.R2_ENDPOINT;
 const region = process.env.R2_REGION || "auto";
@@ -33,38 +36,26 @@ async function streamToString(stream) {
 }
 
 export async function getObject(key) {
-  try {
-    const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
-    const data = await r2Client.send(cmd);
-    return await streamToString(data.Body);
-  } catch (err) {
-    throw new Error(`GET ${key} failed: ${err.message}`);
-  }
+  const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
+  const data = await r2Client.send(cmd);
+  return await streamToString(data.Body);
 }
 
 export async function putText(key, content) {
-  try {
-    const cmd = new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: content,
-      ContentType: "text/plain; charset=utf-8",
-    });
-    await r2Client.send(cmd);
-    log.info(`✅ PUT ${key} → ${bucket}`);
-  } catch (err) {
-    throw new Error(`PUT ${key} failed: ${err.message}`);
-  }
+  const cmd = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: content,
+    ContentType: "text/plain; charset=utf-8",
+  });
+  await r2Client.send(cmd);
+  log.info(`✅ PUT ${key} → ${bucket}`);
 }
 
 export async function listObjects(prefix = "") {
-  try {
-    const cmd = new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix });
-    const res = await r2Client.send(cmd);
-    return res.Contents?.map((o) => o.Key) || [];
-  } catch (err) {
-    throw new Error(`LIST failed: ${err.message}`);
-  }
+  const cmd = new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix });
+  const res = await r2Client.send(cmd);
+  return res.Contents?.map((o) => o.Key) || [];
 }
 
 export async function verifyBucket() {
@@ -74,26 +65,27 @@ export async function verifyBucket() {
   return true;
 }
 
-// ---------------- Safe Presigner Loader ----------------
+// --- Runtime Presigner Loader via File URL ---
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
-  // Hide literal from Node static analysis
-  const parts = ["@aws-sdk", "s3-request-presigner"];
-  let presigner = null;
+  const presignerPath = pathToFileURL(
+    path.resolve(__dirname, "./presigner-loader.js")
+  ).href;
+
+  let loader = null;
   try {
-    presigner = await import(parts.join("/")).catch(() => null);
-  } catch {
-    presigner = null;
+    loader = await import(presignerPath);
+  } catch (err) {
+    log.warn(`⚙️ Presigner loader unavailable: ${err.message}`);
+    return null;
   }
 
-  if (!presigner || typeof presigner.getSignedUrl !== "function") {
-    log.warn("⚙️ Presigner not installed – safe mode active.");
+  if (!loader?.getSignedUrl) {
+    log.warn("⚙️ Presigner not available – safe mode active.");
     return null;
   }
 
   try {
-    const { getSignedUrl } = presigner;
-    const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
-    const url = await getSignedUrl(r2Client, cmd, { expiresIn });
+    const url = await loader.getSignedUrl(r2Client, bucket, key, expiresIn);
     log.info(`🔗 Generated signed URL for ${key}`);
     return url;
   } catch (err) {
