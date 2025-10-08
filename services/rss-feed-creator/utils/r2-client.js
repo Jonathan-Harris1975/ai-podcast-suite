@@ -89,12 +89,8 @@ export async function getSignedUrlForKey(key, expiresIn = 3600) {
     getSignedUrl = presigner.getSignedUrl;
     log.info("🔐 Presigner loaded successfully.");
   } catch {
-    log.warn(
-      "⚠️ Optional dependency '@aws-sdk/s3-request-presigner' not found – presigned URLs disabled."
-    );
-    throw new Error(
-      "Presigner module missing – cannot generate signed URL. Install '@aws-sdk/s3-request-presigner' if needed."
-    );
+    log.warn("⚙️ Presigner skipped (safe mode).");
+    throw new Error("Presigner module missing – cannot generate signed URL.");
   }
 
   try {
@@ -104,4 +100,4 @@ export async function getSignedUrlForKey(key, expiresIn = 3600) {
   } catch (err) {
     throw new Error(`Failed to generate signed URL for ${key}: ${err.message}`);
   }
-      
+}
