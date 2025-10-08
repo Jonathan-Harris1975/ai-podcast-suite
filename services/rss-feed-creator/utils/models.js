@@ -1,6 +1,6 @@
 // utils/models.js
 import fetch from "node-fetch";
-import { log } from "../../utils/logger.js";
+import { log } from "../../../utils/logger.js";
 
 export async function callOpenRouterModel({ id, model, prompt, apiKey }) {
   try {
