@@ -1,5 +1,4 @@
 import winston from "winston";
-import chalk from "chalk";
 
 const levelColors = {
   error: chalk.red.bold,
@@ -11,7 +10,7 @@ const levelColors = {
 const timestamp = winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" });
 const logFormat = winston.format.printf(({ level, message, timestamp }) => {
   const colorizer = levelColors[level] || ((txt) => txt);
-  return `${chalk.dim(timestamp)} ${colorizer(level.toUpperCase())} ${message}`;
+  return `${colorize.dim(timestamp)} ${colorizer(level.toUpperCase())} ${message}`;
 });
 
 export const log = winston.createLogger({
