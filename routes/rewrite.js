@@ -6,14 +6,13 @@ import { fileURLToPath } from "url";
 
 const router = express.Router();
 
-// --- Dynamic import fix ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Try resolving the pipeline relative to the project root
+// ✅ FIXED: go three levels up from /app/routes → /app/ai-podcast-suite-main/services
 const pipelinePath = path.resolve(
   __dirname,
-  "../../services/rss-feed-creator/services/rewrite-pipeline.js"
+  "../../../services/rss-feed-creator/services/rewrite-pipeline.js"
 );
 
 let runRewritePipeline;
@@ -25,7 +24,6 @@ try {
   log.error(`❌ Failed to import rewrite pipeline: ${err.message}`);
 }
 
-// --- POST /api/rewrite endpoint ---
 router.post("/", async (req, res) => {
   log.info("✅ POST /api/rewrite received");
 
