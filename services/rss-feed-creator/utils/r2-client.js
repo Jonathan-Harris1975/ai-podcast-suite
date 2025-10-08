@@ -6,8 +6,7 @@ import {
   HeadObjectCommand,
   ListBucketsCommand,
 } from "@aws-sdk/client-s3";
-import { log } from "./logger.js";
-
+import { log } from "../../../utils/logger.js";
 // ──────────────────────────────────────────────
 // Environment config
 // ──────────────────────────────────────────────
