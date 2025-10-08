@@ -1,83 +1,35 @@
-// utils/r2-client.js
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+// services/rss-feed-creator/utils/r2-client.js
+import fetch from "node-fetch";
 import { log } from "../../../utils/logger.js";
 
-export const r2 = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY || process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_KEY || process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
+const endpoint = process.env.R2_ENDPOINT;
+const region   = process.env.R2_REGION || "auto";
 
-const BUCKET = process.env.R2_BUCKET_RSS || "rss-feeds";
-
-/**
- * Upload JSON file to R2
- */
-export async function putJson(key, data) {
-  await r2.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: JSON.stringify(data, null, 2),
-      ContentType: "application/json; charset=utf-8",
-    })
-  );
-  log.info({ key }, "📦 JSON uploaded to R2");
+if (!endpoint || !endpoint.includes(".r2.cloudflarestorage.com")) {
+  throw new Error("❌ Invalid or missing R2_ENDPOINT — must point to Cloudflare R2 (e.g. https://xxxx.r2.cloudflarestorage.com)");
 }
 
-/**
- * Upload text or XML file to R2
- * - Detects XML and sets correct MIME type
- */
-export async function putText(key, text) {
-  let contentType = "text/plain; charset=utf-8";
-  if (key.endsWith(".xml")) {
-    contentType = "application/rss+xml; charset=utf-8";
-  } else if (key.endsWith(".html") || key.endsWith(".htm")) {
-    contentType = "text/html; charset=utf-8";
-  }
+log.info(`☁️ Connecting to Cloudflare R2 endpoint: ${endpoint}`);
+log.info(`✅ R2 endpoint verified (region: ${region})`);
 
-  await r2.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: Buffer.from(text, "utf-8"),
-      ContentType: contentType,
-    })
-  );
-  log.info({ key, contentType }, "📦 Text uploaded to R2");
-}
-
-/**
- * Check if object exists
- */
-export async function headObject(key) {
-  try {
-    await r2.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
-    return true;
-  } catch (err) {
-    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) {
-      return false;
-    }
-    throw err;
-  }
-}
-
-/**
- * Fetch an object from R2
- */
 export async function getObject(key) {
-  try {
-    const data = await r2.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-    if (!data.Body) return null;
-    return await data.Body.transformToString("utf-8");
-  } catch (err) {
-    if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
-      return null;
-    }
-    throw err;
-  }
+  const url = `${endpoint}/${key}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`GET ${key} failed: ${res.statusText}`);
+  return await res.text();
+}
+
+export async function putText(key, content) {
+  const url = `${endpoint}/${key}`;
+  const res = await fetch(url, {
+    method: "PUT",
+    body: content,
+    headers: { "Content-Type": "text/plain" }
+  });
+  if (!res.ok) throw new Error(`PUT ${key} failed: ${res.statusText}`);
+  log.info(`📦 Text uploaded to R2: ${key}`);
+}
+
+export async function putJson(key, data) {
+  await putText(key, JSON.stringify(data, null, 2));
 }
