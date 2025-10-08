@@ -1,4 +1,4 @@
-// utils/r2-client.js
+// services/rss-feed-creator/utils/r2-client.js
 import {
   S3Client,
   GetObjectCommand,
@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { log } from "../../../utils/logger.js";
 
+// ---------------- Configuration ----------------
 const endpoint = process.env.R2_ENDPOINT;
 const region = process.env.R2_REGION || "auto";
 const accessKeyId = process.env.R2_ACCESS_KEY_ID;
@@ -26,6 +27,7 @@ export const r2Client = new S3Client({
 
 log.info(`☁️ Connected to Cloudflare R2 bucket: ${bucket}`);
 
+// ---------------- Helpers ----------------
 async function streamToString(stream) {
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
@@ -76,28 +78,28 @@ export async function verifyBucket() {
 }
 
 // ---------------- Safe Presigned URL Generator ----------------
+// This version cannot crash even if '@aws-sdk/s3-request-presigner' is missing.
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
-  // Try to load presigner safely
-  let getSignedUrl;
-  try {
-    const presignerPath = "@aws-sdk/s3-request-presigner";
-    const presigner = await import(presignerPath).catch(() => null);
+  const pkg = "@aws-sdk/s3-request-presigner"; // hide name from ESM pre-resolve
+  let presigner = null;
 
-    if (presigner && typeof presigner.getSignedUrl === "function") {
-      getSignedUrl = presigner.getSignedUrl;
-      log.info("🔐 Presigner loaded successfully.");
-    } else {
-      log.warn("⚙️ Presigner module not installed – safe mode active.");
-      return null;
-    }
-  } catch (err) {
-    log.warn(`⚙️ Presigner skipped (safe mode): ${err.message}`);
-    return null;
+  try {
+    // Prevent Node from pre-resolving; load dynamically
+    presigner = await import(pkg).catch(() => null);
+  } catch {
+    presigner = null;
+  }
+
+  if (!presigner || typeof presigner.getSignedUrl !== "function") {
+    log.warn("⚙️ Presigner not installed – safe mode active.");
+    return null; // gracefully skip
   }
 
   try {
+    const { getSignedUrl } = presigner;
     const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
     const url = await getSignedUrl(r2Client, cmd, { expiresIn });
+    log.info(`🔗 Generated signed URL for ${key}`);
     return url;
   } catch (err) {
     log.error(`❌ Failed to generate signed URL for ${key}: ${err.message}`);
