@@ -1,4 +1,4 @@
-import { log } from "./logger.js";
+import { log } from "../../../utils/logger.js";
 
 export function checkEnv(requiredVars = []) {
   const missing = requiredVars.filter((key) => !process.env[key]);
