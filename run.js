@@ -2,7 +2,7 @@
 import { runScriptService } from "./services/script/scriptService.js";
 import { runArtworkService } from "./services/artwork/artworkService.js";
 import { runTTSService } from "./services/tts/ttsService.js";
-import { log } from "./utils/logger.js";
+import { log } from "utils/logger.js";
 
 /**
  * Runs all 3 services sequentially for the given sessionId.
