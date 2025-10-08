@@ -1,5 +1,5 @@
 import express from "express";
-import { log } from "../utils/logger.js";
+import { log } from "../../../utils/logger.js";
 import { sendWebhook } from "../utils/webhooks.js";
 
 const router = express.Router();

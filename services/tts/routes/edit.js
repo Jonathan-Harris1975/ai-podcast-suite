@@ -1,5 +1,5 @@
 import express from "express";
-import { log } from "../utils/logger.js";
+import { log } from "../../../utils/logger.js";
 import { normalizeAndFinalize } from "../utils/audio.js";
 import { postWebhook } from "../utils/webhooks.js";
 
