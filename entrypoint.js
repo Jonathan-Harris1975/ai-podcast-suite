@@ -4,7 +4,7 @@ import { bootstrapR2 } from "./services/bootstrap.js";
 
 (async () => {
   try {
-    await bootstrapR2();
+    await bootstrapR2(); // make sure feeds.txt, urls.txt, cursor.json are good in R2
   } catch (err) {
     console.error("❌ Bootstrap failed:", err);
   }
