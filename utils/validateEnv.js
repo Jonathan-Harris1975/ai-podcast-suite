@@ -34,9 +34,7 @@ export function validateEnv() {
     } else {
       console.log(
         chalk.green(
-          `✅ ${key} = ${
-            val.startsWith("https") ? val : "[OK]"
-          }`
+          `✅ ${key} = ${val.startsWith("https") ? val : "[OK]"}`
         )
       );
       if (key.startsWith("R2_BUCKET_")) r2Buckets.push(val);
@@ -63,30 +61,4 @@ export function validateEnv() {
   }
 
   console.log(chalk.greenBright("\n✅ Environment validation complete\n"));
-}    console.error(
-      chalk.redBright(
-        `\n🚨 Missing ${missing.length} critical environment variable(s): ${missing.join(", ")}`
-      )
-    );
-    process.exit(1);
-  }
-
-  console.log(chalk.greenBright("\n✅ Environment validation passed\n"));
-
-  // Display R2 summary table
-  console.log(chalk.magentaBright("🌐 Cloudflare R2 Configuration"));
-  console.log(chalk.magentaBright("───────────────────────────────"));
-  
-  // --- FIX STARTS HERE ---
-  // Log the R2 Endpoint and Region
-  console.log(chalk.cyan(`Endpoint: ${process.env.R2_ENDPOINT}`));
-  console.log(chalk.cyan(`Region:   ${process.env.R2_REGION}`));
-  
-  // Log the collected R2 buckets
-  console.log(chalk.magentaBright("\nBuckets:"));
-  r2Buckets.forEach(bucket => {
-    console.log(chalk.yellow(`  - ${bucket}`));
-  });
-  console.log(chalk.magentaBright("───────────────────────────────\n"));
-  // --- FIX ENDS HERE ---
 }
