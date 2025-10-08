@@ -26,7 +26,6 @@ export const r2Client = new S3Client({
 
 log.info(`☁️ Connected to Cloudflare R2 bucket: ${bucket}`);
 
-// Convert R2 stream to string
 async function streamToString(stream) {
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
@@ -34,8 +33,6 @@ async function streamToString(stream) {
 }
 
 // ---------------- Core Operations ----------------
-
-// ✅ Read object as text
 export async function getObject(key) {
   try {
     const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
@@ -46,7 +43,6 @@ export async function getObject(key) {
   }
 }
 
-// ✅ Upload text / string data
 export async function putText(key, content) {
   try {
     const cmd = new PutObjectCommand({
@@ -62,7 +58,6 @@ export async function putText(key, content) {
   }
 }
 
-// ✅ List objects
 export async function listObjects(prefix = "") {
   try {
     const cmd = new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix });
@@ -73,7 +68,6 @@ export async function listObjects(prefix = "") {
   }
 }
 
-// ✅ Verify bucket accessibility
 export async function verifyBucket() {
   const cmd = new HeadBucketCommand({ Bucket: bucket });
   await r2Client.send(cmd);
@@ -83,14 +77,22 @@ export async function verifyBucket() {
 
 // ---------------- Safe Presigned URL Generator ----------------
 export async function getSignedUrlForKey(key, expiresIn = 3600) {
+  // Try to load presigner safely
   let getSignedUrl;
   try {
-    const presigner = await import("@aws-sdk/s3-request-presigner");
-    getSignedUrl = presigner.getSignedUrl;
-    log.info("🔐 Presigner loaded successfully.");
-  } catch {
-    log.warn("⚙️ Presigner skipped (safe mode).");
-    throw new Error("Presigner module missing – cannot generate signed URL.");
+    const presignerPath = "@aws-sdk/s3-request-presigner";
+    const presigner = await import(presignerPath).catch(() => null);
+
+    if (presigner && typeof presigner.getSignedUrl === "function") {
+      getSignedUrl = presigner.getSignedUrl;
+      log.info("🔐 Presigner loaded successfully.");
+    } else {
+      log.warn("⚙️ Presigner module not installed – safe mode active.");
+      return null;
+    }
+  } catch (err) {
+    log.warn(`⚙️ Presigner skipped (safe mode): ${err.message}`);
+    return null;
   }
 
   try {
@@ -98,6 +100,7 @@ export async function getSignedUrlForKey(key, expiresIn = 3600) {
     const url = await getSignedUrl(r2Client, cmd, { expiresIn });
     return url;
   } catch (err) {
-    throw new Error(`Failed to generate signed URL for ${key}: ${err.message}`);
+    log.error(`❌ Failed to generate signed URL for ${key}: ${err.message}`);
+    return null;
   }
 }
