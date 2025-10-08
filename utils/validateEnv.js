@@ -1,6 +1,5 @@
-// ANSI color helper (replaces chalk)
-const colorize = {
-  green: (msg) => `\x1b[32m${msg}\x1b[0m`,
+// ANSI color helper (replaces )
+\x1b[0m`,
   red:   (msg) => `\x1b[31m${msg}\x1b[0m`,
   yellow:(msg) => `\x1b[33m${msg}\x1b[0m`,
   blue:  (msg) => `\x1b[34m${msg}\x1b[0m`,
@@ -12,15 +11,15 @@ const colorize = {
 // utils/validateEnv.js
 import process from "process";
 
-let chalk;
+let ;
 
 // ✅ Graceful dynamic import with fallback (for Shiper, Docker, etc.)
 try {
-  const chalkModule = await import("chalk");
-  chalk = chalkModule.default;
+  const Module = await import("");
+   = Module.default;
 } catch {
-  // Minimal fallback if chalk is missing
-  chalk = {
+  // Minimal fallback if  is missing
+   = {
     cyanBright: (s) => s,
     red: (s) => s,
     redBright: (s) => s,
@@ -30,7 +29,7 @@ try {
     cyan: (s) => s,
   };
   console.warn(
-    "⚠️  'chalk' not found. Run `npm install chalk` for colored output."
+    "⚠️  '' not found. Run `npm install ` for colored output."
   );
 }
 
@@ -53,18 +52,18 @@ export function validateEnv() {
     "PORT",
   ];
 
-  console.log(colorize.cyanBright("🧩 Validating environment variables..."));
+  console.log(("🧩 Validating environment variables..."));
   const missing = [];
   const r2Buckets = [];
 
   for (const key of required) {
     const val = process.env[key];
     if (!val || !val.trim()) {
-      console.log(colorize.red(`❌ Missing: ${key}`));
+      console.log((`❌ Missing: ${key}`));
       missing.push(key);
     } else {
       console.log(
-        colorize.green(
+        (
           `✅ ${key} = ${val.startsWith("https") ? val : "[OK]"}`
         )
       );
@@ -74,22 +73,22 @@ export function validateEnv() {
 
   if (missing.length) {
     console.error(
-      colorize.redBright(
+      (
         `\n🚨 Missing ${missing.length} critical environment variable(s): ${missing.join(", ")}`
       )
     );
     process.exit(1);
   }
 
-  console.log(colorize.greenBright("\n✅ Environment validation passed\n"));
+  console.log(("\n✅ Environment validation passed\n"));
 
   // Display R2 summary
-  console.log(colorize.magentaBright("🌐 Cloudflare R2 Configuration"));
-  console.log(colorize.magentaBright("───────────────────────────────"));
+  console.log(("🌐 Cloudflare R2 Configuration"));
+  console.log(("───────────────────────────────"));
 
   for (const bucket of r2Buckets) {
-    console.log(colorize.cyanBright(`📦 ${bucket}`));
+    console.log((`📦 ${bucket}`));
   }
 
-  console.log(colorize.greenBright("\n✅ Environment validation complete\n"));
+  console.log(("\n✅ Environment validation complete\n"));
 }
