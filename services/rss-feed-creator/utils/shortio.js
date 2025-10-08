@@ -1,6 +1,6 @@
 // utils/shortio.js
 import fetch from "node-fetch";
-import { log } from "./logger.js";
+import { log } from "../../../utils/logger.js";
 
 const API_KEY = process.env.SHORTIO_API_KEY;
 const RAW_DOMAIN =
