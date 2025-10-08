@@ -1,6 +1,5 @@
 // services/build-rss.js
 import { log } from "../../../utils/logger.js";
-
 import { r2 } from "../utils/r2-client.js";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
@@ -27,9 +26,9 @@ export async function rebuildRss(items = []) {
 <rss version="2.0"
      xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>AI Newsletter with a Gen X flare to it</title>
+    <title>GenX Newsletter + Podcast Feed</title>
     <link>https://jonathan-harris.online</link>
-    <description>AI-powered RSS monitoring and rewriting system </description>
+    <description>AI-powered RSS monitoring, rewriting, and podcast publishing system</description>
     <atom:link href="${feedUrl}" rel="self" type="application/rss+xml"/>
 ${rssItems}
   </channel>
