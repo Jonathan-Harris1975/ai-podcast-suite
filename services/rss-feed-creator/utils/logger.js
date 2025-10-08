@@ -1,10 +1,9 @@
 import winston from "winston";
 
-
 const timestamp = winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" });
 const logFormat = winston.format.printf(({ level, message, timestamp }) => {
   const colorizer = levelColors[level] || ((txt) => txt);
-  return `${colorize.dim(timestamp)} ${colorizer(level.toUpperCase())} ${message}`;
+  return `${(timestamp)} ${colorizer(level.toUpperCase())} ${message}`;
 });
 
 export const log = winston.createLogger({
