@@ -1,11 +1,11 @@
-// routes/rewrite.js
 import express from "express";
 import { log } from "../utils/logger.js";
-import { runRewritePipeline } from "/app/services/rss-feed-creator/services/rewrite-pipeline.js"; // ✅ absolute path
+import { runRewritePipeline } from "/app/services/rss-feed-creator/services/rewrite-pipeline.js";
 
 const router = express.Router();
 
-router.post("/", async (req, res) => {
+// ✅ route path fixed
+router.post("/rewrite", async (req, res) => {
   log.info("✅ POST /api/rewrite received");
 
   if (typeof runRewritePipeline !== "function") {
