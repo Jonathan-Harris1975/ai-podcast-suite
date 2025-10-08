@@ -1,32 +1,49 @@
+// server.js
 import express from "express";
- import helmet from "helmet";
- import cors from "cors";
- import { log } from "./utils/logger.js";
+import helmet from "helmet";
+import cors from "cors";
+import { log } from "./utils/logger.js";
 
- import rssRoutes from "./routes/rss.js";
- import rewriteRoutes from "./routes/rewrite.js";
+import rssRoutes from "./routes/rss.js";
+import rewriteRoutes from "./routes/rewrite.js";
 
- const app = express();
- app.use(helmet());
- app.use(cors());
-- app.use(express.json());
-+
-+ // Lightweight request log so you can see traffic
-+ app.use((req, _res, next) => { log.info(`${req.method} ${req.originalUrl}`); next(); });
-+
-+ // Lenient JSON just for /api to avoid empty-body JSON errors
-+ app.use("/api", express.json({ strict: false, limit: "1mb", type: "*/*" }));
-+ // Default JSON for others, if needed
-+ app.use("/", express.json());
+const app = express();
 
- app.get("/health", (req, res) => res.json({ ok: true }));
+// ─────────────────────────────────────────────
+// Core middleware
+// ─────────────────────────────────────────────
+app.use(helmet());
+app.use(cors());
 
-- app.use("/", rssRoutes);
-- app.use("/api", rewriteRoutes);
-+ app.use("/api", rewriteRoutes);  // ensure /api takes priority
-+ app.use("/", rssRoutes);
+// Lightweight request logger (for all routes)
+app.use((req, _res, next) => {
+  log.info(`${req.method} ${req.originalUrl}`);
+  next();
+});
 
- log.info("✅ Environment variables OK");
- log.info("🚀 Main AI Podcast Service initialized");
+// Lenient JSON parser for /api to handle empty or weird bodies
+app.use("/api", express.json({ strict: false, limit: "1mb", type: "*/*" }));
 
- export default app;
+// Standard JSON parser for everything else
+app.use("/", express.json());
+
+// ─────────────────────────────────────────────
+// Health route
+// ─────────────────────────────────────────────
+app.get("/health", (req, res) => res.json({ ok: true }));
+
+// ─────────────────────────────────────────────
+// Route mounting order
+// Ensure /api takes priority over /
+// ─────────────────────────────────────────────
+app.use("/api", rewriteRoutes);
+app.use("/", rssRoutes);
+
+// ─────────────────────────────────────────────
+// Initialization logs
+// ─────────────────────────────────────────────
+log.info("✅ Environment variables OK");
+log.info("🚀 Main AI Podcast Service initialized");
+log.info("✅ Loaded main service module keys: default");
+
+export default app;
