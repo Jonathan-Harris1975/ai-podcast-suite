@@ -1,3 +1,14 @@
+// ANSI color helper (replaces chalk)
+const colorize = {
+  green: (msg) => `\x1b[32m${msg}\x1b[0m`,
+  red:   (msg) => `\x1b[31m${msg}\x1b[0m`,
+  yellow:(msg) => `\x1b[33m${msg}\x1b[0m`,
+  blue:  (msg) => `\x1b[34m${msg}\x1b[0m`,
+  cyan:  (msg) => `\x1b[36m${msg}\x1b[0m`,
+  magenta:(msg)=> `\x1b[35m${msg}\x1b[0m`,
+  gray:  (msg) => `\x1b[90m${msg}\x1b[0m`
+};
+
 // utils/validateEnv.js
 import process from "process";
 
@@ -42,18 +53,18 @@ export function validateEnv() {
     "PORT",
   ];
 
-  console.log(chalk.cyanBright("🧩 Validating environment variables..."));
+  console.log(colorize.cyanBright("🧩 Validating environment variables..."));
   const missing = [];
   const r2Buckets = [];
 
   for (const key of required) {
     const val = process.env[key];
     if (!val || !val.trim()) {
-      console.log(chalk.red(`❌ Missing: ${key}`));
+      console.log(colorize.red(`❌ Missing: ${key}`));
       missing.push(key);
     } else {
       console.log(
-        chalk.green(
+        colorize.green(
           `✅ ${key} = ${val.startsWith("https") ? val : "[OK]"}`
         )
       );
@@ -63,22 +74,22 @@ export function validateEnv() {
 
   if (missing.length) {
     console.error(
-      chalk.redBright(
+      colorize.redBright(
         `\n🚨 Missing ${missing.length} critical environment variable(s): ${missing.join(", ")}`
       )
     );
     process.exit(1);
   }
 
-  console.log(chalk.greenBright("\n✅ Environment validation passed\n"));
+  console.log(colorize.greenBright("\n✅ Environment validation passed\n"));
 
   // Display R2 summary
-  console.log(chalk.magentaBright("🌐 Cloudflare R2 Configuration"));
-  console.log(chalk.magentaBright("───────────────────────────────"));
+  console.log(colorize.magentaBright("🌐 Cloudflare R2 Configuration"));
+  console.log(colorize.magentaBright("───────────────────────────────"));
 
   for (const bucket of r2Buckets) {
-    console.log(chalk.cyanBright(`📦 ${bucket}`));
+    console.log(colorize.cyanBright(`📦 ${bucket}`));
   }
 
-  console.log(chalk.greenBright("\n✅ Environment validation complete\n"));
+  console.log(colorize.greenBright("\n✅ Environment validation complete\n"));
 }
