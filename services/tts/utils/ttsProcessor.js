@@ -91,7 +91,6 @@ async function synthesizeChunk(text, outMp3, idx) {
   await convertPcmToMp3(tmpPcm, outMp3);
   try { fs.unlinkSync(tmpPcm); } catch {}
 
-
 export async function processTTS(sessionId) {
   log.info({ sessionId }, "🎙 Starting TTS");
   const urls = await getTextChunkUrls(sessionId);
