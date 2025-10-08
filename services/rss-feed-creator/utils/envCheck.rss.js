@@ -1,4 +1,4 @@
-import { log } from "../utils/logger.js";
+import { log } from "../../../utils/logger.js";
 
 const REQUIRED = [
   "R2_BUCKET_PODCAST",
