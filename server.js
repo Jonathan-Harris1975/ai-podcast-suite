@@ -8,7 +8,7 @@ import fetch from "node-fetch";
 import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 import { validateEnv } from "./utils/validateEnv.js";
 
-// Load environment variables
+// Load environment variables first
 dotenv.config();
 
 // Retry configuration
@@ -112,6 +112,63 @@ app.use(express.json());
 // Healthcheck for Shiper container orchestration
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
+// ---------------- Secure R2 Diagnostic Route ----------------
+app.get("/api/check-r2", async (req, res) => {
+  const token = req.query.token;
+  const expectedToken = process.env.R2_CHECK_TOKEN; // set in Shiper env
+
+  if (!expectedToken) {
+    return res.status(500).json({ error: "R2_CHECK_TOKEN not set on server." });
+  }
+
+  if (token !== expectedToken) {
+    return res.status(403).json({ error: "Unauthorized: invalid or missing token." });
+  }
+
+  const endpoint = process.env.R2_ENDPOINT;
+  const region = process.env.R2_REGION || "auto";
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const bucket = process.env.R2_BUCKET_RSS_FEEDS || "rss-feeds";
+
+  const status = {
+    timestamp: new Date().toISOString(),
+    endpoint,
+    bucket,
+    endpointReachable: false,
+    bucketAccessible: false,
+  };
+
+  try {
+    // Ping R2 endpoint
+    const headResp = await fetch(endpoint, { method: "HEAD" });
+    status.endpointReachable = headResp.ok;
+
+    // Verify bucket accessibility
+    const s3 = new S3Client({
+      region,
+      endpoint,
+      credentials: { accessKeyId, secretAccessKey },
+    });
+    const command = new HeadBucketCommand({ Bucket: bucket });
+    await s3.send(command);
+    status.bucketAccessible = true;
+
+    return res.json({
+      ok: true,
+      message: "R2 endpoint and bucket verified successfully.",
+      details: status,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      message: "R2 check failed.",
+      error: err.message,
+      details: status,
+    });
+  }
 });
 
 // Root endpoint
