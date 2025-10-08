@@ -1,6 +1,7 @@
 // services/bootstrap.js
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { log } from "../utils/logger.js";
 import { getObject, putText, putJson } from "./rss-feed-creator/utils/r2-client.js";
@@ -8,79 +9,100 @@ import { getObject, putText, putJson } from "./rss-feed-creator/utils/r2-client.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Compute a simple hash for logging/comparison
+function sha256(s) {
+  return crypto.createHash("sha256").update(s || "", "utf8").digest("hex").slice(0, 12);
+}
+
+// Try to locate the local data directory in every plausible place
+function resolveDataDir() {
+  const candidates = [
+    // relative to this file (/app/.../services/bootstrap.js)
+    path.resolve(__dirname, "../rss-feed-creator/data"),
+    path.resolve(__dirname, "../../services/rss-feed-creator/data"),
+    // relative to cwd
+    path.resolve(process.cwd(), "services/rss-feed-creator/data"),
+    path.resolve(process.cwd(), "ai-podcast-suite-main/services/rss-feed-creator/data"),
+    // absolute fallbacks in Shiper-style containers
+    "/app/services/rss-feed-creator/data",
+    "/app/ai-podcast-suite-main/services/rss-feed-creator/data",
+  ];
+  for (const dir of candidates) {
+    try {
+      if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+        return dir;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+// Read a local text file (and assert it’s non-empty)
+function readLocalTextFile(dataDir, filename) {
+  const filePath = path.join(dataDir, filename);
+  if (!fs.existsSync(filePath)) {
+    log.error(`❌ Local data file missing: ${filePath}`);
+    return { ok: false, content: "" };
+  }
+  const content = fs.readFileSync(filePath, "utf-8");
+  const size = Buffer.byteLength(content, "utf8");
+  if (!content.trim()) {
+    log.error(`❌ Local data file is empty: ${filePath}`);
+    return { ok: false, content: "" };
+  }
+  log.info(`📖 Loaded ${filename} (${size} bytes, sha=${sha256(content)}) from ${filePath}`);
+  return { ok: true, content };
+}
+
 export async function bootstrapR2() {
   log.info("🧩 Running R2 bootstrap...");
 
-  // 🔍 1. Dynamically resolve the data directory
-  const searchDirs = [
-    path.resolve(__dirname, "../rss-feed-creator/data"),
-    path.resolve(__dirname, "../../services/rss-feed-creator/data"),
-    path.resolve("/app/services/rss-feed-creator/data"),
-    path.resolve("/app/ai-podcast-suite-main/services/rss-feed-creator/data"),
-  ];
-
-  let dataDir = searchDirs.find((dir) => fs.existsSync(dir));
+  const dataDir = resolveDataDir();
   if (!dataDir) {
-    log.error("❌ No local data directory found for feeds.txt / urls.txt");
+    log.error("❌ Could not locate local data directory for feeds.txt / urls.txt");
+    return;
+  }
+  log.info(`📂 Using data directory: ${dataDir}`);
+
+  const feedsLocal = readLocalTextFile(dataDir, "feeds.txt");
+  const urlsLocal  = readLocalTextFile(dataDir, "urls.txt");
+
+  // Assert we have non-empty local files before touching R2
+  if (!feedsLocal.ok || !urlsLocal.ok) {
+    log.error("❌ Aborting bootstrap — refused to upload blank/missing files to R2.");
     return;
   }
 
-  log.info(`📂 Using data directory: ${dataDir}`);
+  // Seed text file in R2 only if missing/empty
+  async function ensureTextFile(key, localContent) {
+    const existing = await getObject(key).catch(err => {
+      log.error(`❌ R2 getObject(${key}) failed: ${err.message}`);
+      return null;
+    });
 
-  // 🔧 Helper to read a file
-  const readFileSafe = (filename) => {
-    const filePath = path.join(dataDir, filename);
-    if (!fs.existsSync(filePath)) {
-      log.warn(`⚠️ Local file not found: ${filename}`);
-      return "";
+    if (existing && existing.trim()) {
+      log.info(`ℹ️ ${key} already exists in R2 (${Buffer.byteLength(existing, "utf8")} bytes, sha=${sha256(existing)})`);
+      return;
     }
-    const content = fs.readFileSync(filePath, "utf-8").trim();
-    log.info(`📖 Loaded ${filename} (${content.length} bytes)`);
-    return content;
-  };
 
-  const feedsLocal = readFileSafe("feeds.txt");
-  const urlsLocal = readFileSafe("urls.txt");
-
-  // 🔧 Helper to upload file if missing
-  async function ensureTextFile(key, localData) {
-    try {
-      const existing = await getObject(key);
-      if (!existing || !existing.trim()) {
-        const content = localData?.trim()
-          ? localData
-          : "# default placeholder\nhttps://techcrunch.com/feed/\nhttps://www.theverge.com/rss/index.xml";
-        await putText(key, content);
-        log.info(`✅ Uploaded ${key} (${content.length} bytes)`);
-      } else {
-        log.info(`ℹ️ ${key} already present in R2`);
-      }
-    } catch (err) {
-      log.error(`❌ Error ensuring ${key}: ${err.message}`);
-    }
+    await putText(key, localContent);
+    log.info(`✅ Uploaded ${key} to R2 (${Buffer.byteLength(localContent, "utf8")} bytes, sha=${sha256(localContent)})`);
   }
 
-  // 🔧 Cursor JSON
+  // Ensure cursor.json exists
   async function ensureCursor() {
-    try {
-      const existing = await getObject("cursor.json");
-      if (!existing || existing.trim() === "{}") {
-        const data = {
-          lastUpdated: new Date().toISOString(),
-          processed: [],
-        };
-        await putJson("cursor.json", data);
-        log.info("✅ Seeded cursor.json");
-      } else {
-        log.info("ℹ️ cursor.json already exists");
-      }
-    } catch (err) {
-      log.error(`❌ Failed to create cursor.json: ${err.message}`);
+    const existing = await getObject("cursor.json").catch(() => null);
+    if (existing && existing.trim() !== "{}") {
+      log.info("ℹ️ cursor.json already present in R2");
+      return;
     }
+    const data = { lastUpdated: new Date().toISOString(), processed: [] };
+    await putJson("cursor.json", data);
+    log.info("✅ Seeded cursor.json in R2");
   }
 
-  await ensureTextFile("feeds.txt", feedsLocal);
-  await ensureTextFile("urls.txt", urlsLocal);
+  await ensureTextFile("feeds.txt", feedsLocal.content);
+  await ensureTextFile("urls.txt", urlsLocal.content);
   await ensureCursor();
 
   log.info("✅ R2 bootstrap completed successfully");
