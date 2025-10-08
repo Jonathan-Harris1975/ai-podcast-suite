@@ -47,4 +47,17 @@ export function validateEnv() {
   // Display R2 summary table
   console.log(chalk.magentaBright("🌐 Cloudflare R2 Configuration"));
   console.log(chalk.magentaBright("───────────────────────────────"));
-  console.log(chalk
+  
+  // --- FIX STARTS HERE ---
+  // Log the R2 Endpoint and Region
+  console.log(chalk.cyan(`Endpoint: ${process.env.R2_ENDPOINT}`));
+  console.log(chalk.cyan(`Region:   ${process.env.R2_REGION}`));
+  
+  // Log the collected R2 buckets
+  console.log(chalk.magentaBright("\nBuckets:"));
+  r2Buckets.forEach(bucket => {
+    console.log(chalk.yellow(`  - ${bucket}`));
+  });
+  console.log(chalk.magentaBright("───────────────────────────────\n"));
+  // --- FIX ENDS HERE ---
+}
