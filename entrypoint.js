@@ -1,40 +1,22 @@
 // entrypoint.js
-import express from "express";
-import { log } from "./utils/logger.js";
+import app from "./server.js";
+import { bootstrapR2 } from "./services/bootstrap.js";
 
-const app = express();
+(async () => {
+  try {
+    await bootstrapR2(); // 🔥 ensures feeds.txt, urls.txt, cursor.json exist in R2
+  } catch (err) {
+    console.error("❌ R2 bootstrap failed:", err);
+  }
 
-app.get("/", (_, res) => res.send("AI Podcast Suite Online"));
-app.get("/health", (_, res) => res.json({ ok: true }));
-
-let mainApp;
-let rssApp;
-
-try {
-  const mod = await import("./server.js");
-  mainApp = mod.default || mod.app || mod.router || mod;
-  log.info(`✅ Loaded main service module keys: ${Object.keys(mod).join(",")}`);
-} catch (err) {
-  log.error(`❌ Failed to import main service: ${err.message}`);
-}
-
-try {
-  const mod = await import("./services/rss-feed-creator/index.js");
-  rssApp = mod.default || mod.app || mod.router || mod;
-  log.info(`✅ Loaded RSS service module keys: ${Object.keys(mod).join(",")}`);
-} catch (err) {
-  log.error(`❌ Failed to import RSS service: ${err.message}`);
-}
-
-function looksLikeExpress(a) {
-  return a && (typeof a.use === "function" || typeof a.handle === "function");
-}
-
-if (looksLikeExpress(mainApp)) {
-  app.use("/", mainApp);
-  log.info("🧠 Main Service mounted at: /");
-} else {
-  log.warn("⚠️ Main service not mountable (likely self-listening).");
+  const PORT = process.env.PORT || 8080;
+  app.listen(PORT, () => {
+    console.log("===========================================");
+    console.log("🚀 AI Podcast Suite Unified Server Started");
+    console.log(`✅ Listening on port: ${PORT}`);
+    console.log("===========================================");
+  });
+})();  log.warn("⚠️ Main service not mountable (likely self-listening).");
 }
 
 if (looksLikeExpress(rssApp)) {
