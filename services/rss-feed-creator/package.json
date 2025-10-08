@@ -3,13 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=20.0.0"
-  },
+  "engines": { "node": ">=20.0.0" },
   "scripts": {
     "start": "node server.js",
-    "start:rss-feed-creator": "node services/rss-feed-creator/index.js",
-    "dev:all": "echo \"Add concurrently to run multiple services\" && exit 0"
+    "start:rss-feed-creator": "node services/rss-feed-creator/index.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.637.0",
@@ -39,5 +36,8 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.0.2"
-  }
+  },
+  "workspaces": [
+    "services/*"
+  ]
 }
