@@ -1,3 +1,4 @@
+import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 // services/rss-feed-creator/index.js
 import express from "express";
 import cors from "cors";
