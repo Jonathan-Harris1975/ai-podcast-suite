@@ -1,16 +1,8 @@
+import { validateR2Once, s3, R2_BUCKETS } from "../../r2-client.js";
 // utils/r2-artwork-client.js
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
-const r2 = new S3Client({
-  region: "auto",
-  endpoint:
-    process.env.R2_ENDPOINT ||
-    `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY || process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_KEY || process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
+const r2 = /* replaced: use shared s3 from services/r2-client.js */ s3;
 
 /**
  * Upload base64 PNG to R2 and return public URL.
@@ -36,3 +28,5 @@ export async function uploadToR2(imageBase64, filename) {
 
   return `${process.env.R2_PUBLIC_BASE_URL}/${filename}`;
 }
+
+await validateR2Once();
