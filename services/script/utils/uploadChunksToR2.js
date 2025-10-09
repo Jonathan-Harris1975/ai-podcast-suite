@@ -1,4 +1,3 @@
-import { validateR2Once, s3, R2_BUCKETS } from "../../r2-client.js";
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const {
@@ -31,5 +30,3 @@ export default async function uploadChunksToR2(filePath, key) {
   const base = R2_PUBLIC_BASE_URL_CHUNKS.endsWith('/') ? R2_PUBLIC_BASE_URL_CHUNKS.slice(0, -1) : R2_PUBLIC_BASE_URL_CHUNKS;
   return `${base}/${key}`;
 }
-
-await validateR2Once();

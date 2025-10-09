@@ -1,4 +1,3 @@
-import { validateR2Once, s3, R2_BUCKETS } from "../../r2-client.js";
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const {
@@ -30,5 +29,3 @@ export default async function uploadMetaToR2(sessionId, keySuffix, content) {
   const base = R2_PUBLIC_BASE_URL_META.endsWith('/') ? R2_PUBLIC_BASE_URL_META.slice(0, -1) : R2_PUBLIC_BASE_URL_META;
   return `${base}/${key}`;
 }
-
-await validateR2Once();
