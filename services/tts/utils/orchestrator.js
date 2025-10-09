@@ -3,7 +3,11 @@ import { processTTS } from "./ttsProcessor.js";
 import { mergeChunks } from "./mergeprocessor.js";
 import { processEditing } from "./editingProcessor.js";
 import { processPodcast } from "./podcastProcessor.js";
-import { listChunks } from "./TTSr2.js";
+import { validateEnv } from "../services/env-checker.js";
+import { validateR2Once, s3, R2_BUCKETS, uploadBuffer } from "../services/r2-client.js";
+
+validateEnv();          // hard-stop if any env var is missing
+await validateR2Once(); // single HeadBucket probe (no retries/ping)
 import logger from "./logger.js";
 
 /**
