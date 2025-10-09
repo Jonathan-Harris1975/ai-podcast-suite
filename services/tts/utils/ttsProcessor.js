@@ -5,8 +5,11 @@ import pLimit from "p-limit";
 import fetch from "node-fetch";
 import ffmpeg from "fluent-ffmpeg";
 import { log } from "../../../utils/logger.js";
-import { R2_BUCKETS, uploadBuffer } from "./r2-client.js";
-import { getTextChunkUrls } from "./textchunksR2.js";
+import { validateEnv } from "../services/env-checker.js";
+import { validateR2Once, s3, R2_BUCKETS, uploadBuffer } from "../services/r2-client.js";
+
+validateEnv();          // hard-stop if any env var is missing
+await validateR2Once(); // single HeadBucket probe (no retries/ping)
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const TTS_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent";
