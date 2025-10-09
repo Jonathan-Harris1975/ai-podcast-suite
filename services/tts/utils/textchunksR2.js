@@ -1,14 +1,9 @@
-import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
-import { validateEnv } from "../services/env-checker.js";
-import { validateR2Once, s3, R2_BUCKETS, uploadBuffer } from "../services/r2-client.js";
-
-validateEnv();          // hard-stop if any env var is missing
-await validateR2Once(); // single HeadBucket probe (no retries/ping)
+import { BUCKETS, listKeys, getObjectAsText, buildPublicUrl } from "../../r2-client.js";
 import { log } from "../../../utils/logger.js";
 
 export async function getTextChunkUrls(sessionId) {
   const prefix = `${sessionId}/`;
-  const keys = await listKeys({ bucket: R2_BUCKETS.RAW_TEXT, prefix });
+  const keys = await listKeys({ bucket: BUCKETS.RAW_TEXT, prefix });
   const chunkKeys = keys
     .filter(k => /chunk-\d+\.txt$/.test(k))
     .sort((a,b) => {

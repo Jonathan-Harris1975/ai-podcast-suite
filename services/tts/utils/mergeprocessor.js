@@ -5,10 +5,8 @@ import path from "path";
 import { spawn } from "child_process";
 import fetch from "node-fetch";
 import { validateEnv } from "../services/env-checker.js";
-import { validateR2Once, s3, R2_BUCKETS, uploadBuffer } from "../services/r2-client.js";
-
 validateEnv();          // hard-stop if any env var is missing
-await validateR2Once(); // single HeadBucket probe (no retries/ping)
+// single HeadBucket probe (no retries/ping)
 import logger from "./logger.js";
 
 const tempDir = "/tmp"; // Render ephemeral storage
