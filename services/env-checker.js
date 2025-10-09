@@ -1,5 +1,6 @@
 /**
- * Global Environment Validator (Hard Stop)
+ * Root Environment Validator (Hard Stop)
+ * Only used at root server start.
  */
 export function validateEnv() {
   console.log("🔍 Validating environment variables...");
