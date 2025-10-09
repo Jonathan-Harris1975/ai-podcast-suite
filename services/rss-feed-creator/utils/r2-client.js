@@ -80,6 +80,52 @@ export async function getObject(key) {
     }
     throw err;
   }
+}  if (key.endsWith(".xml")) {
+    contentType = "application/rss+xml; charset=utf-8";
+  } else if (key.endsWith(".html") || key.endsWith(".htm")) {
+    contentType = "text/html; charset=utf-8";
+  }
+
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: Buffer.from(text, "utf-8"),
+      ContentType: contentType,
+    })
+  );
+  log.info({ key, contentType }, "📦 Text uploaded to R2");
+}
+
+/**
+ * Check if object exists
+ */
+export async function headObject(key) {
+  try {
+    await r2.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+    return true;
+  } catch (err) {
+    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Fetch an object from R2
+ */
+export async function getObject(key) {
+  try {
+    const data = await r2.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    if (!data.Body) return null;
+    return await data.Body.transformToString("utf-8");
+  } catch (err) {
+    if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
+      return null;
+    }
+    throw err;
+  }
 }// Create the S3-compatible R2 client
 // ────────────────────────────────────────────────
 export const r2Client = new S3Client({
