@@ -1,4 +1,0 @@
-Modified files:
-- services/services/r2-client.js: Replaced with HeadBucket validation
-- services/rss-feed-creator/utils/r2-client.js: Replaced with HeadBucket validation
-- services/tts/utils/r2-client.js: Replaced with HeadBucket validation
