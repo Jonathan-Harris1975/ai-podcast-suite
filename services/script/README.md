@@ -1,13 +1,13 @@
-# Podcast Script Service
+# Text-to-Speech (TTS)
 
-Generates the weekly show script from the RSS feed data.
+Turns the script into audio assets using Google Gemini 2.5 TTS.
 
 ## 🧩 Role
-Reads the standalone feed and drafts a coherent episode script.
+Consume script text and output chunked/merged audio files.
 
 ## 🔗 Inputs → Outputs
-- **Reads**: `rss-feeds` bucket
-- **Writes**: `raw-text` bucket (script text)
+- **Reads**: `raw-text` bucket
+- **Writes**: `podcast-chunks`, `podcast-merged`, `podcast` buckets
 
 ## ☁️ R2 Usage
 - Uses the shared client: `import { s3, R2_BUCKETS, uploadBuffer, listKeys } from "../services/r2-client.js";`
@@ -33,4 +33,4 @@ await validateR2Once();
 ```
 
 ## 🛟 Notes
-- OpenRouter fallback: enabled here to maintain script generation during model outages
+- OpenRouter fallback: not required; uses Gemini 2.5 TTS
