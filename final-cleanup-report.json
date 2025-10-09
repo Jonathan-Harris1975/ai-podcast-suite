@@ -1,9 +1,0 @@
-{
-  "patched_files": [
-    "services/r2-validate.js",
-    "services/rss-feed-creator/services/rewrite-pipeline.js",
-    "utils/validateEnv.js"
-  ],
-  "removed_legacy_files": [],
-  "note": "All R2-related console output removed; validateR2Once is silent."
-}
