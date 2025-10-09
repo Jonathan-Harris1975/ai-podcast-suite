@@ -1,3 +1,4 @@
+import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../r2-client.js";
 import express from 'express';
 import composeRouter from './routes/compose.js'; // Adjust if your path is different
 
