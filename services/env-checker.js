@@ -1,5 +1,10 @@
 /**
  * Global Environment Validator (Hard Stop)
+ * ---------------------------------------
+ * Ensures all required env vars exist BEFORE services boot.
+ * Exits the process if anything critical is missing.
+ *
+ * Note: All live env values are stored in Shiper for safety.
  */
 export function validateEnv() {
   console.log("🔍 Validating environment variables...");
