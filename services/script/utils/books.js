@@ -1,4 +1,4 @@
-import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
+import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
