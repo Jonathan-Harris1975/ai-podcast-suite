@@ -68,8 +68,8 @@ export function validateEnv() {
   console.log(colors.green("\n✅ Environment validation passed\n"));
 
   // Display R2 summary
-  console.log(colors.cyanBright("🌐 Cloudflare R2 Configuration"));
-  console.log(colors.gray("───────────────────────────────"));
+  console.log(colors.cyanBright("🌐 "));
+  console.log(colors.gray(""));
   for (const bucket of r2Buckets) {
     console.log(colors.cyan(`📦 ${bucket}`));
   }
