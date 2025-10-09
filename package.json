@@ -7,7 +7,28 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.663.0",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "@google-cloud/text-to-speech": "^5.2.0",
+    "child_process": "*",
+    "cors": "*",
+    "dotenv": "^16.4.5",
+    "ffmpeg-static": "*",
+    "ffprobe-static": "*",
+    "fluent-ffmpeg": "*",
+    "logform": "*",
+    "module": "*",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.56.0",
+    "p-limit": "*",
+    "pino": "^9.2.0",
+    "pino-http": "*",
+    "process": "*",
+    "rss-parser": "*",
+    "supertest": "*",
+    "undici": "*",
+    "utils": "*",
+    "winston": "*",
+    "zod": "*"
   },
   "main": "server.js"
 }
