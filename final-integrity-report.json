@@ -1,12 +1,20 @@
 {
-  "repo_root": "/mnt/data/r2_cleanup_work3/ai-podcast-suite-main",
-  "legacy_hits": [],
-  "patched_files": [],
   "notes": [
-    "Added /services/env-checker.js (hard stop) and /services/r2-client.js (shared).",
-    "Removed legacy ping/attempt/retry and direct endpoint HTTP checks.",
-    "Inserted validateR2Once() imports + calls where necessary.",
-    "Ensured server.js invokes validateEnv() and validateR2Once().",
-    "Updated @aws-sdk/client-s3 in package.json if needed."
+    "RSS feed is standalone; orchestrator runs Script \u2192 TTS \u2192 Artwork.",
+    "All env values are stored on Shiper for safety.",
+    "No ping/retry loops remain; unified validateR2Once() used."
+  ],
+  "files": [
+    "services/env-checker.js",
+    "services/r2-client.js",
+    "services/s3client.js",
+    "rss-feed-creator/README.md",
+    "script/README.md",
+    "tts/README.md",
+    "artwork/README.md",
+    "podcast/README.md",
+    "server.js",
+    "package.json",
+    "README.md"
   ]
 }

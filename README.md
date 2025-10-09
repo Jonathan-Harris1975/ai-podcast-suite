@@ -1,36 +1,81 @@
 # 🎧 AI Podcast & Newsletter Suite
-**Version:** 2025.10.09
 
-A modular Node.js stack that turns weekly AI news into a narrated podcast + newsletter.  
-Sources are aggregated into a **newsletter RSS/JSON feed**, then orchestrated into a scripted episode with **OpenRouter (LLM)**, voiced with **Google Gemini 2.5 TTS**, artwork generated, and results stored in **Cloudflare R2**.
+Clean, Shiper‑ready monorepo for an automated podcast + newsletter workflow.
+
+- **RSS Feed** is a **standalone service** (for newsletter and for the podcast script to read from).
+- Podcast orchestration flow is: **Script → TTS → Artwork** (triggered by a single endpoint).
+- All environment variables are stored securely on **Shiper** for safety.
+
+## 🧭 Top-level Endpoints (typical)
+> Adjust paths to match your current routes.
+
+- `POST /api/podcast` → Orchestrator (runs: Script → TTS → Artwork)
+- `GET  /api/status` → Basic health/uptime JSON
+- `GET  /health`      → Lightweight health probe
+
+## 🧱 Architecture (text map)
+
+```
+Cloudflare R2 (buckets)
+ ├─ rss-feeds
+ ├─ raw-text
+ ├─ podcast-chunks
+ ├─ podcast-merged
+ ├─ podcast
+ └─ podcast-meta
+
+Services
+ ├─ rss-feed-creator  (standalone, fills rss-feeds for newsletter + script input)
+ ├─ script            (reads RSS feed → generates weekly show script → raw-text)
+ ├─ tts               (turns script into audio chunks → podcast-chunks/merged)
+ └─ artwork           (episode cover → podcast-meta)
+```
+
+## 🔐 Environment
+
+All sensitive env vars are configured in **Shiper** → *Settings → Variables*.  
+This repo reads them at runtime via `process.env` only.
+
+Core variables used across the suite:
+```
+R2_ENDPOINT
+R2_REGION
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+R2_BUCKET_RSS_FEEDS
+R2_BUCKET_RAW_TEXT
+R2_BUCKET_PODCAST
+R2_BUCKET_META
+R2_BUCKET_RAW
+R2_BUCKET_MERGED
+OPENROUTER_API_KEY
+```
+
+## 🧰 Shared Utilities
+
+- `services/env-checker.js` → Hard-stop environment validator.
+- `services/r2-client.js` → Unified Cloudflare R2 S3 client (no ping/retry).
+- `services/s3client.js` → Alias for legacy imports.
+
+## 🚀 Orchestrator
+
+The orchestrator is a single **POST** endpoint (e.g. `/api/podcast`) that:
+1. **Script**: reads the weekly RSS feed data → writes `raw-text` to R2.
+2. **TTS**: turns the script into audio chunks / merged file(s).
+3. **Artwork**: generates the cover image and stores metadata.
+
+> **Note**: The **RSS feed creator is standalone** and can run on its own schedule.  
+> The podcast orchestration reads the feed as an input but does not trigger the feed itself.
+
+## 🛟 Fallbacks
+
+- **OpenRouter** fallback is baked into the **script** and **rss-feed-creator** services to keep running through model outages.
+
+## 🧪 Status
+
+- `GET /api/status` responds with `{ status, version, uptime, environment, services }` for quick checks.
+- `GET /health` is a minimal probe used by platforms/load balancers.
 
 ---
 
-## 🚀 Deployment Quick Start
-1. **Set environment variables** (see below).
-2. **Deploy to Shiper** (Clear build cache → Manual Deploy).
-3. **Trigger a full run**: `POST /api/podcast` → fetch weekly RSS topics → script → TTS → artwork → publish.
-
----
-
-## 🔌 Environment
-```bash
-R2_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
-R2_REGION=auto
-R2_ACCESS_KEY_ID=<key>
-R2_SECRET_ACCESS_KEY=<secret>
-
-R2_BUCKET_RSS_FEEDS=rss-feeds
-R2_BUCKET_RAW_TEXT=raw-text
-R2_BUCKET_PODCAST=podcast
-R2_BUCKET_META=podcast-meta
-R2_BUCKET_RAW=podcast-chunks
-R2_BUCKET_MERGED=podcast-merged
-
-OPENROUTER_API_KEY=<your_openrouter_key>
-# Optional:
-OPENROUTER_MODEL_PRIMARY=gpt-4.1
-OPENROUTER_MODEL_FALLBACK=claude-3-sonnet
-OPENROUTER_TIMEOUT_MS=15000
-PORT=3000
-NODE_ENV=production
+✨ Built for clean deployments on **Shiper** with unified logging and zero “ping” logic.
