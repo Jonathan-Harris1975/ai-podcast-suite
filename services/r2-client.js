@@ -1,22 +1,11 @@
 /**
  * Cloudflare R2 Client – Master Shared Instance
- * ---------------------------------------------
- * Single source of truth for all services (script, TTS, artwork, rss-feed-creator).
- * No ping/retry loops. Uses a single HeadBucket check on demand.
  */
-
 import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
 import fs from "node:fs";
 
-const endpoint =
-  process.env.R2_ENDPOINT ||
-  (process.env.R2_ACCOUNT_ID
-    ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-    : undefined);
-
-if (!endpoint) {
-  console.warn("⚠️  R2 endpoint not set. Define R2_ENDPOINT or R2_ACCOUNT_ID.");
-}
+const endpoint = process.env.R2_ENDPOINT || (process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : undefined);
+if (!endpoint) console.warn("⚠️  R2 endpoint not set. Define R2_ENDPOINT or R2_ACCOUNT_ID.");
 
 export const s3 = new S3Client({
   region: process.env.R2_REGION || "auto",
@@ -62,7 +51,6 @@ export async function validateR2Once() {
     console.error("   Error:", err.name);
     console.error("   Message:", err.message);
     if (err.$metadata?.httpStatusCode) console.error("   HTTP:", err.$metadata.httpStatusCode);
-    // do not exit here; env-checker is responsible for hard-stop; this is a connectivity probe.
   }
   console.log("🧩 R2 validation complete.");
 }
@@ -70,14 +58,7 @@ export async function validateR2Once() {
 export async function uploadBuffer({ bucket, key, body, contentType }) {
   if (!bucket || !key || body == null) throw new Error("uploadBuffer: bucket, key, and body are required.");
   console.log(`⬆️  Uploading ${key} → ${bucket}`);
-
-  await s3.send(new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    Body: body,
-    ContentType: contentType,
-  }));
-
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
   const url = buildPublicUrl(bucket, key);
   if (url) console.log(`✅ Public URL: ${url}`);
   else console.warn(`⚠️ No public base URL configured for bucket ${bucket}`);
