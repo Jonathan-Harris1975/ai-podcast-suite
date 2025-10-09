@@ -1,10 +1,12 @@
 {
-  "repo_root": "/mnt/data/repo_scan_work2/ai-podcast-suite-main",
+  "repo_root": "/mnt/data/r2_cleanup_work3/ai-podcast-suite-main",
   "legacy_hits": [],
   "patched_files": [],
   "notes": [
-    "Unified R2 client and env checker added under /services.",
-    "Replaced legacy ping/retry logic with validateR2Once() calls.",
-    "Please ensure service entry points also call validateEnv() early."
+    "Added /services/env-checker.js (hard stop) and /services/r2-client.js (shared).",
+    "Removed legacy ping/attempt/retry and direct endpoint HTTP checks.",
+    "Inserted validateR2Once() imports + calls where necessary.",
+    "Ensured server.js invokes validateEnv() and validateR2Once().",
+    "Updated @aws-sdk/client-s3 in package.json if needed."
   ]
 }

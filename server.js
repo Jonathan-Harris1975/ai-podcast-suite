@@ -1,3 +1,5 @@
+import { validateR2Once } from "services/r2-client.js";
+import { validateEnv } from "services/env-checker.js";
 /**
  * AI Podcast & Newsletter Suite
  * Version: 2025.10.09
@@ -15,6 +17,8 @@ import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 
 const app = express();
 app.use(express.json());
+validateEnv();
+await validateR2Once();
 
 // ────────────────────────────────────────────────
 // Environment
