@@ -1,24 +1,36 @@
-# Podcast-MP3
+# Text-to-Speech (TTS)
 
-Required Environment Variables:
+Turns the script into audio assets using Google Gemini 2.5 TTS.
 
-- BUCKET_MERGED
-- GCP_PROJECT_ID
-- GOOGLE_APPLICATION_CREDENTIALS
-- MIN_INTRO_DURATION
-- MIN_OUTRO_DURATION
-- PODCAST_INTRO_URL
-- PODCAST_OUTRO_URL
-- PORT
-- PROCESSING_TIMEOUT_MS
-- R2_BUCKET_PODCAST
-- R2_BUCKET_RAW
-- R2_BUCKET_RAW_TEXT
-- R2_META_BUCKET
-- R2_PUBLIC_BASE_URL_MERGE
-- R2_PUBLIC_BASE_URL_META
-- R2_PUBLIC_BASE_URL_PODCAST
-- R2_PUBLIC_BASE_URL_RAW
-- R2_PUBLIC_BASE_URL_RAW_TEXT
-- NODE_ENV
-- LOG_LEVEL
+## 🧩 Role
+Consume script text and output chunked/merged audio files.
+
+## 🔗 Inputs → Outputs
+- **Reads**: `raw-text` bucket
+- **Writes**: `podcast-chunks`, `podcast-merged`, `podcast` buckets
+
+## ☁️ R2 Usage
+- Uses the shared client: `import { s3, R2_BUCKETS, uploadBuffer, listKeys } from "../services/r2-client.js";`
+- Public URL helper: `buildPublicUrl(bucket, key)`
+
+## 🔐 Environment
+- All env values are stored in **Shiper** for safety.
+- This service uses the global validator:  
+  ```js
+  import { validateEnv } from "../services/env-checker.js";
+  validateEnv(); // hard stop if misconfigured
+  ```
+
+## 🧪 Example (pseudo)
+```js
+import { validateEnv } from "../services/env-checker.js";
+import { validateR2Once, s3, R2_BUCKETS, uploadBuffer } from "../services/r2-client.js";
+
+validateEnv();
+await validateR2Once();
+
+// your service logic here…
+```
+
+## 🛟 Notes
+- OpenRouter fallback: not required; uses Gemini 2.5 TTS
