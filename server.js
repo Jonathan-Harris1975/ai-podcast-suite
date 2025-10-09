@@ -33,7 +33,7 @@ async function validateEnvironment() {
     "OPENROUTER_API_KEY",
   ];
 
-  let missing = [];
+  const missing = [];
   for (const key of required) {
     if (!process.env[key]) missing.push(key);
     else console.log(`✅ ${key} = [OK]`);
@@ -45,11 +45,10 @@ async function validateEnvironment() {
   }
 
   console.log("✅ Environment validation passed");
-  return true;
 }
 
 // ────────────────────────────────────────────────
-// R2 Connectivity Check (HeadBucket)
+/** R2 Connectivity Check (HeadBucket) */
 // ────────────────────────────────────────────────
 async function verifyR2Connectivity() {
   console.log("🌐 Checking Cloudflare R2 connectivity...");
@@ -72,10 +71,9 @@ async function verifyR2Connectivity() {
   });
 
   try {
-    const command = new HeadBucketCommand({
+    await s3.send(new HeadBucketCommand({
       Bucket: R2_BUCKET_RSS_FEEDS || "rss-feeds",
-    });
-    await s3.send(command);
+    }));
     console.log(`✅ Successfully connected to R2 bucket "${R2_BUCKET_RSS_FEEDS}".`);
   } catch (err) {
     console.error("🚨 R2 connectivity check failed:");
@@ -95,28 +93,22 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
 });
 
-// ────────────────────────────────────────────────
-// Optional: Basic root route
-// ────────────────────────────────────────────────
+// Optional root
 app.get("/", (req, res) => {
   res.send("🚀 AI Podcast Suite Server is running");
 });
 
 // ────────────────────────────────────────────────
-// Startup Validation
+// Startup
 // ────────────────────────────────────────────────
 async function startServer() {
   try {
     await validateEnvironment();
     await verifyR2Connectivity();
-
-    app.listen(PORT, () =>
-      console.log(`✅ Server running on port ${PORT}`)
-    );
+    app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
   } catch (err) {
     console.error("❌ Startup failed:", err.message);
     process.exit(1);
   }
 }
-
 startServer();
