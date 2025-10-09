@@ -1,1 +1,1 @@
-export async function validateR2Once(){ /* removed: no network ping */ return; }
+export async function { /* removed: no network ping */ return; }
