@@ -5,7 +5,7 @@ import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, Hea
 import fs from "node:fs";
 
 const endpoint = process.env.R2_ENDPOINT || (process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : undefined);
-if (!endpoint) console.warn("⚠️  R2 endpoint not set. Define R2_ENDPOINT or R2_ACCOUNT_ID.");
+if (!endpoint) 
 
 export const s3 = new S3Client({
   region: process.env.R2_REGION || "auto",
@@ -41,27 +41,24 @@ export function buildPublicUrl(bucket, key) {
   return `${base.replace(/\/+$/, "")}/${String(key).replace(/^\/+/, "")}`;
 }
 
-export async function validateR2Once() {
-  console.log("🌐 Validating Cloudflare R2 connectivity...");
-  try {
-    await s3.send(new HeadBucketCommand({ Bucket: R2_BUCKETS.RSS_FEEDS }));
-    console.log(`✅ Successfully connected to R2 bucket "${R2_BUCKETS.RSS_FEEDS}".`);
+export async function validateR2Once(){ try{ await s3.send(new HeadBucketCommand({ Bucket: R2_BUCKETS.RSS_FEEDS })); }catch(_){} }));
+    
   } catch (err) {
-    console.error("🚨 R2 connectivity check failed:");
-    console.error("   Error:", err.name);
-    console.error("   Message:", err.message);
-    if (err.$metadata?.httpStatusCode) console.error("   HTTP:", err.$metadata.httpStatusCode);
+    
+    
+    
+    if (err.$metadata?.httpStatusCode) 
   }
-  console.log("🧩 R2 validation complete.");
+  
 }
 
 export async function uploadBuffer({ bucket, key, body, contentType }) {
   if (!bucket || !key || body == null) throw new Error("uploadBuffer: bucket, key, and body are required.");
-  console.log(`⬆️  Uploading ${key} → ${bucket}`);
+  
   await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
   const url = buildPublicUrl(bucket, key);
-  if (url) console.log(`✅ Public URL: ${url}`);
-  else console.warn(`⚠️ No public base URL configured for bucket ${bucket}`);
+  if (url) 
+  else 
   return { bucket, key, url };
 }
 
@@ -73,7 +70,7 @@ export async function listKeys({ bucket, prefix = "" }) {
     (res.Contents || []).forEach((o) => out.push(o.Key));
     token = res.IsTruncated ? res.NextContinuationToken : undefined;
   } while (token);
-  console.log(`📦 ${bucket}: ${out.length} objects`);
+  
   return out;
 }
 

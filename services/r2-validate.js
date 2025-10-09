@@ -10,19 +10,19 @@ const {
 } = process.env;
 
 export async function validateR2Once() {
-  console.log("🌐 Validating Cloudflare R2 connectivity...");
+  console.log("🌐 ...");
   const s3 = /* replaced: use shared s3 from services/r2-client.js */ s3;
   try {
     await s3.send(new HeadBucketCommand({ Bucket: R2_BUCKET_RSS_FEEDS }));
-    console.log(`✅ Successfully connected to R2 bucket "${R2_BUCKET_RSS_FEEDS}".`);
+    
   } catch (err) {
-    console.error("🚨 R2 connectivity check failed:");
+    
     console.error("   Error:", err.name);
     console.error("   Message:", err.message);
     if (err.$metadata?.httpStatusCode) console.error("   HTTP:", err.$metadata.httpStatusCode);
     throw err;
   }
-  console.log("🧩 R2 validation complete.");
+  console.log("🧩 .");
 }
 
 await validateR2Once();
