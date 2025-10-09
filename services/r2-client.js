@@ -23,9 +23,10 @@ export const r2Client = new S3Client({
   },
 });
 
+// One-time validation (non-blocking for imports elsewhere)
 (async () => {
-  console.log("🌐 Validating Cloudflare R2 connectivity...");
   try {
+    console.log("🌐 Validating Cloudflare R2 connectivity...");
     await r2Client.send(new HeadBucketCommand({ Bucket: R2_BUCKET_RSS_FEEDS }));
     console.log(`✅ Successfully connected to R2 bucket "${R2_BUCKET_RSS_FEEDS}".`);
   } catch (err) {
@@ -33,8 +34,7 @@ export const r2Client = new S3Client({
     console.error("   Error:", err.name);
     console.error("   Message:", err.message);
     console.error("   HTTP:", err.$metadata?.httpStatusCode);
-    if (err.Code) console.error("   Code:", err.Code);
-    if (err.Region) console.error("   Region hint:", err.Region);
+  } finally {
+    console.log("🧩 R2 validation complete.");
   }
-  console.log("🧩 R2 validation complete.");
 })();
