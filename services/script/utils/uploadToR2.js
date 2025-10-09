@@ -1,3 +1,4 @@
+import { validateR2Once, s3, R2_BUCKETS } from "../../r2-client.js";
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const {
@@ -12,11 +13,7 @@ if (!R2_ACCESS_KEY || !R2_SECRET_KEY || !R2_BUCKET_TRANSCRIPTS || !R2_ENDPOINT |
   throw new Error('Missing one or more required R2 environment variables for transcripts.');
 }
 
-const s3 = new S3Client({
-  region: 'auto',
-  endpoint: R2_ENDPOINT,
-  credentials: { accessKeyId: R2_ACCESS_KEY, secretAccessKey: R2_SECRET_KEY }
-});
+const s3 = /* replaced: use shared s3 from services/r2-client.js */ s3;
 
 export default async function uploadToR2(filePath, key) {
   const fs = await import('fs');
@@ -34,3 +31,5 @@ export default async function uploadToR2(filePath, key) {
   const base = R2_PUBLIC_BASE_URL_TRANSCRIPT.endsWith('/') ? R2_PUBLIC_BASE_URL_TRANSCRIPT.slice(0, -1) : R2_PUBLIC_BASE_URL_TRANSCRIPT;
   return `${base}/${key}`;
 }
+
+await validateR2Once();
