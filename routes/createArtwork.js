@@ -1,25 +1,24 @@
 import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../r2-client.js";
-// routes/health.js
+// routes/createArtwork.js
 import express from "express";
 import fetch from "node-fetch";
 
 const router = express.Router();
 
-// ✅ GET /health
-router.get("/", async (req, res) => {
+// This route is optional, a POST alternative to health trigger
+router.post("/", async (req, res) => {
   try {
-    const { sessionId, metaUrls } = req.query;
+    const { sessionId, metaUrls } = req.body;
 
-    // If Hookdeck just pings with no params → reply OK
     if (!sessionId) {
-      return res.json({ status: "ok", message: "Health check passed" });
+      return res.status(400).json({ error: "sessionId is required" });
     }
+
+    const payload = { sessionId, metaUrls };
 
     if (!process.env.ART_CREATE) {
       return res.status(500).json({ error: "ART_CREATE env not set" });
     }
-
-    const payload = { sessionId, metaUrls };
 
     await fetch(process.env.ART_CREATE, {
       method: "POST",
@@ -29,8 +28,8 @@ router.get("/", async (req, res) => {
 
     res.json({ status: "started", sessionId });
   } catch (err) {
-    console.error("❌ Health trigger error:", err);
-    res.status(500).json({ error: "Failed to trigger artwork generation" });
+    console.error("❌ Error in /create-artwork:", err);
+    res.status(500).json({ error: "Failed to start artwork generation" });
   }
 });
 
