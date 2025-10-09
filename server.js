@@ -4,13 +4,13 @@
  */
 import express from "express";
 import { validateEnv } from "./services/env-checker.js";
-import { validateR2Once } from "./services/r2-client.js";
+import { validateR2ConfigOnce } from "./services/r2-client.js";
 
 const app = express();
 app.use(express.json());
 
 validateEnv();
-await validateR2Once();
+await validateR2ConfigOnce();
 
 const VERSION = "2025.10.09";
 const NODE_ENV = process.env.NODE_ENV || "production";
