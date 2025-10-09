@@ -6,8 +6,11 @@ import { execFile } from "child_process";
 import ffmpegPath from "ffmpeg-static";
 import ffprobe from "ffprobe-static";
 import { log } from "../../../utils/logger.js";
-import { listKeys, downloadToFile, uploadBuffer, buildPublicUrl, R2_BUCKETS } from "./r2-client.js";
+import { validateEnv } from "../services/env-checker.js";
+import { validateR2Once, s3, R2_BUCKETS, uploadBuffer } from "../services/r2-client.js";
 
+validateEnv();          // hard-stop if any env var is missing
+await validateR2Once(); // single HeadBucket probe (no retries/ping)
 function runFFmpeg(args) {
   return new Promise((resolve, reject) => {
     execFile(ffmpegPath, args, (err, stdout, stderr) => {
