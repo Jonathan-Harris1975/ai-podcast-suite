@@ -1,11 +1,11 @@
-import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
+import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 import { log } from "../../../utils/logger.js";
 
 const REQUIRED = [
   "R2_BUCKET_PODCAST",
   "R2_BUCKET_RAW",
   "R2_BUCKET_RAW_TEXT",
-  "R2_META_BUCKET",
+  "R2_BUCKET_META",
   "R2_PUBLIC_BASE_URL_PODCAST",
   "R2_PUBLIC_BASE_URL_RAW",
   "R2_PUBLIC_BASE_URL_RAW_TEXT",

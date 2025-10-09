@@ -1,4 +1,4 @@
-import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
+import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 // utils/models.js
 import fetch from "node-fetch";
 import { log } from "../../../utils/logger.js";

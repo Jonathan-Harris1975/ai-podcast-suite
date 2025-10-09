@@ -1,4 +1,4 @@
-import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
+import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 // Fully isolated — not visible to Shiper build resolver
 export async function getSignedUrl(r2Client, bucket, key, expiresIn) {
   try {
