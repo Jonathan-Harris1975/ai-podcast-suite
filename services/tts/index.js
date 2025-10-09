@@ -1,4 +1,4 @@
-import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../r2-client.js";
+import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../r2-client.js";
 // services/tts/index.js
 import { loadGoogleCredentials } from "./loadGoogleCreds.js";
 loadGoogleCredentials(); // 🔑 writes credentials JSON into /tmp for Google SDK
