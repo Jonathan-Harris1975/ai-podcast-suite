@@ -1,4 +1,4 @@
-import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../r2-client.js";
 
 // apps/artwork/routes/index.js
 import express from "express";
