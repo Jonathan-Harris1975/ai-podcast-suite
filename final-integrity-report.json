@@ -1,0 +1,10 @@
+{
+  "repo_root": "/mnt/data/repo_scan_work2/ai-podcast-suite-main",
+  "legacy_hits": [],
+  "patched_files": [],
+  "notes": [
+    "Unified R2 client and env checker added under /services.",
+    "Replaced legacy ping/retry logic with validateR2Once() calls.",
+    "Please ensure service entry points also call validateEnv() early."
+  ]
+}
