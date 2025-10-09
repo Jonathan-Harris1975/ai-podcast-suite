@@ -1,33 +1,44 @@
-# AI Podcast Suite (Koyeb-Stable)
+# 🎧 AI Podcast Suite
 
-Unified Node.js monorepo: **Main AI Podcast Service** + **RSS Feed Creator** under one container, one port (8080).
+**AI Podcast Suite** is a modular Node.js platform that automates the creation, processing, and publishing of AI-generated podcasts. It integrates **Google Gemini 2.5** for TTS, **Cloudflare R2** for object storage, and **OpenRouter** for LLM ops.
 
-## Routes
+---
 
-### Main Service (mounted at `/`)
-| Method | Path | File |
-|---|---|---|
-| `GET` | `/` | `health.js` |
-| `POST` | `/` | `cleaner.js` |
-| `POST` | `/start/:sessionId` | `startProcess.js` |
+## 🚀 Features
+- Modular services (TTS, RSS, metadata, orchestration).
+- Cloudflare R2 for assets (text, chunks, merged MP3, RSS).
+- Startup validation: env check + proper `HeadBucket` connectivity (no endpoint ping).
+- `/health` for Shiper/Render probes.
+- Plain logs (no color libraries).
 
-### RSS Feed Creator (mounted at `/rss`)
-| Method | Path | File |
-|---|---|---|
-| `GET` | `/` | `rss.js` |
-| `POST` | `/rewrite` | `rewrite.js` |
+---
 
-**Health:**
-- `GET /` → "AI Podcast Suite Online"
-- `GET /health` → `{ ok: true }`
+## 🧩 Services Overview
+| Service | Purpose |
+|--------|---------|
+| **rss-feed-creator** | Generates RSS (XML) and JSON feeds; uploads to R2. |
+| **tts** | Text-to-Speech using **Google Gemini 2.5** voices. |
+| **podcast** | Orchestration: generate → chunk → synthesize → merge → publish. |
+| **meta** | Titles, descriptions, transcripts, summaries. |
+| **server.js** | Main entry: validates env, checks R2 (HeadBucket), starts Express. |
 
-## Deploy to Koyeb
+---
 
-- Koyeb auto-detects the Dockerfile
-- Exposes `PORT=8080`
-- Configure environment variables from `.env.example`
-- Single service runs both apps (no extra YAML needed)
+## ☁️ Cloudflare R2 Setup
 
-## Notes
-- Removed service-level Dockerfiles/YAMLs and root `koyeb.yaml`.
-- Both apps remain modular; mounted together for a single exposed HTTP port.
+1. In Cloudflare R2 → **Create API Token** with access to your buckets.
+2. Configure environment variables:
+
+```bash
+R2_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+R2_REGION=auto
+R2_ACCESS_KEY_ID=<your_key>
+R2_SECRET_ACCESS_KEY=<your_secret>
+R2_BUCKET_RSS_FEEDS=rss-feeds
+R2_BUCKET_RAW_TEXT=raw-text
+R2_BUCKET_PODCAST=podcast
+R2_BUCKET_META=podcast-meta
+R2_BUCKET_RAW=podcast-chunks
+R2_BUCKET_MERGED=podcast-merged
+OPENROUTER_API_KEY=<your_openrouter_key>
+PORT=3000
