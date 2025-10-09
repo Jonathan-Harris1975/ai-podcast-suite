@@ -1,6 +1,6 @@
 # RSS Feed Creator (Standalone)
 
-Produces a weekly RSS feed for the newsletter and as input to the script service.
+Produces a daily RSS feed for the newsletter and as input to the script service.
 
 ## 🧩 Role
 Fetches sources, summarises, and writes structured feed items.
