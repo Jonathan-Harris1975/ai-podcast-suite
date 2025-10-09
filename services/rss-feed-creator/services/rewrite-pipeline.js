@@ -1,3 +1,4 @@
+import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 // /services/rss-feed-creator/services/rewrite-pipeline.js
 import fetch from "node-fetch";
 import Parser from "rss-parser";
@@ -20,7 +21,7 @@ const FEEDS_PER_RUN = 5;
 const URLS_PER_RUN = 1;
 const MAX_ITEMS_PER_FEED = parseInt(process.env.MAX_ITEMS_PER_FEED || "3", 10);
 
-// ────────────────────────────────────────────────────────────────
+// ──
 // Helpers
 function parseList(text) {
   if (!text) return [];
@@ -65,7 +66,7 @@ function wrapIndex(start, count, arr) {
   return out;
 }
 
-// ────────────────────────────────────────────────────────────────
+// ──
 // Main pipeline
 export async function runRewritePipeline() {
   log.info("🚀 Starting rewrite pipeline");
