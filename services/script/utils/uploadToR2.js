@@ -1,4 +1,4 @@
-import { s3, BUCKETS as R2_BUCKETS, uploadBuffer, buildPublicUrl } from '../../r2-client.js';
+import {s3, BUCKETS as R2_BUCKETS, uploadBuffer, buildPublicUrl} from '../../r2-client.js';
   throw new Error('Missing one or more required R2 environment variables for transcripts.');
 }
 

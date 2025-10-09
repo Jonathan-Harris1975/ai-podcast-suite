@@ -1,4 +1,4 @@
-import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../r2-client.js";
 // utils/script-helper.js
 import fs from 'fs';
 import path from 'path';
