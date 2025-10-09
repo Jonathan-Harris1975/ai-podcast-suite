@@ -1,0 +1,11 @@
+{
+  "repo_root": "/mnt/data/ping_cleanup_full/ai-podcast-suite-main",
+  "removed_legacy_files": [],
+  "patched_files": [],
+  "notes": [
+    "Removed old R2 ping/attempt/retry validators and imports.",
+    "All modules now rely on services/r2-client.js (HeadBucket) and services/env-checker.js.",
+    "Replaced any local new S3Client(...) constructions with shared 's3' import.",
+    "Sanitised server.js to import validateEnv() + validateR2Once() only."
+  ]
+}
