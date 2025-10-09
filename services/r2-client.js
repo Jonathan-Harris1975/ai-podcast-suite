@@ -1,4 +1,4 @@
-// services/r2-client.js (ESM, silent)
+// services/r2-client.js — unified R2 client (ESM) with single validation (Option B)
 import { S3Client, HeadBucketCommand, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const {
@@ -26,28 +26,31 @@ export const R2_BUCKETS = {
 export const s3 = new S3Client({
   region: R2_REGION || "auto",
   endpoint: R2_ENDPOINT,
-  forcePathStyle: true,
   credentials: {
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY
-  }
+  },
+  forcePathStyle: true
 });
 
 export async function validateR2Once() {
   try {
     if (R2_BUCKETS.RSS_FEEDS) {
       await s3.send(new HeadBucketCommand({ Bucket: R2_BUCKETS.RSS_FEEDS }));
+      console.log(`✅ Verified access to R2 bucket "${R2_BUCKETS.RSS_FEEDS}"`);
+    } else {
+      console.log("⚠️ No R2 bucket specified for validation (skipped).");
     }
-  } catch {}
+  } catch (err) {
+    console.warn("⚠️ R2 validation failed silently:", err?.message || String(err));
+  }
 }
 
-// Optional helpers
+// helpers
 export async function uploadBuffer({ bucket, key, body, contentType }) {
-  if (!bucket || !key || body == null) throw new Error("uploadBuffer: bucket, key, body required");
   await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
   return { bucket, key };
 }
-
 export async function listKeys({ bucket, prefix = "" }) {
   const out = [];
   let token;
@@ -58,7 +61,6 @@ export async function listKeys({ bucket, prefix = "" }) {
   } while (token);
   return out;
 }
-
 export async function getObjectAsText({ bucket, key }) {
   const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   return await res.Body.transformToString("utf-8");
