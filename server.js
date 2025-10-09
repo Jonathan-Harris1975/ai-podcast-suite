@@ -1,11 +1,17 @@
-// ANSI color helper (replaces )
-\x1b[0m`,
+// ANSI color helper (replaces chalk)
+const colors = {
+  reset: (msg) => `${msg}\x1b[0m`,
   red:   (msg) => `\x1b[31m${msg}\x1b[0m`,
   yellow:(msg) => `\x1b[33m${msg}\x1b[0m`,
   blue:  (msg) => `\x1b[34m${msg}\x1b[0m`,
   cyan:  (msg) => `\x1b[36m${msg}\x1b[0m`,
   magenta:(msg)=> `\x1b[35m${msg}\x1b[0m`,
-  gray:  (msg) => `\x1b[90m${msg}\x1b[0m`
+  gray:  (msg) => `\x1b[90m${msg}\x1b[0m`,
+  green: (msg) => `\x1b[32m${msg}\x1b[0m`,
+  cyanBright: (msg) => `\x1b[96m${msg}\x1b[0m`,
+  redBright: (msg) => `\x1b[91m${msg}\x1b[0m`,
+  greenBright: (msg) => `\x1b[92m${msg}\x1b[0m`,
+  magentaBright: (msg) => `\x1b[95m${msg}\x1b[0m`
 };
 
 // server.js
@@ -35,7 +41,7 @@ async function pingR2Endpoint() {
     if (!response.ok) {
       throw new Error(`R2 responded with HTTP ${response.status}`);
     }
-    console.log((`☁️ Verified R2 endpoint reachable: ${endpoint}`));
+    console.log(colors.cyan(`☁️ Verified R2 endpoint reachable: ${endpoint}`));
   } catch (err) {
     throw new Error(`Unable to reach R2 endpoint (${endpoint}): ${err.message}`);
   }
@@ -62,7 +68,7 @@ async function verifyR2Bucket() {
   try {
     const command = new HeadBucketCommand({ Bucket: bucket });
     await s3.send(command);
-    console.log((`📦 Verified R2 bucket exists: ${bucket}`));
+    console.log(colors.cyan(`📦 Verified R2 bucket exists: ${bucket}`));
   } catch (err) {
     throw new Error(`Cannot access R2 bucket "${bucket}": ${err.message}`);
   }
@@ -74,34 +80,34 @@ async function tryValidateEnvWithRetry() {
   while (attempt <= RETRY_LIMIT) {
     try {
       console.log(
-        (`\n🔍 Attempt ${attempt}/${RETRY_LIMIT}: validating environment...`)
+        colors.blue(`\n🔍 Attempt ${attempt}/${RETRY_LIMIT}: validating environment...`)
       );
 
       // Validate environment variables
       validateEnv();
 
       // Ping R2 endpoint
-      console.log(("🌐 Pinging Cloudflare R2 endpoint..."));
+      console.log(colors.yellow("🌐 Pinging Cloudflare R2 endpoint..."));
       await pingR2Endpoint();
 
       // Verify R2 bucket exists
-      console.log(("🪣 Verifying R2 bucket accessibility..."));
+      console.log(colors.yellow("🪣 Verifying R2 bucket accessibility..."));
       await verifyR2Bucket();
 
-      console.log(("✅ Environment, R2 endpoint, and bucket validation succeeded.\n"));
+      console.log(colors.green("✅ Environment, R2 endpoint, and bucket validation succeeded.\n"));
       return true;
     } catch (err) {
       console.error(
-        (
+        colors.red(
           `❌ Validation failed (attempt ${attempt}/${RETRY_LIMIT}): ${err.message}`
         )
       );
       if (attempt < RETRY_LIMIT) {
-        console.log((`⏳ Retrying in ${RETRY_DELAY_MS / 1000}s...\n`));
+        console.log(colors.yellow(`⏳ Retrying in ${RETRY_DELAY_MS / 1000}s...\n`));
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       } else {
         console.error(
-          (`\n🚨 All ${RETRY_LIMIT} validation attempts failed. Exiting.\n`)
+          colors.redBright(`\n🚨 All ${RETRY_LIMIT} validation attempts failed. Exiting.\n`)
         );
         process.exit(1);
       }
@@ -189,6 +195,6 @@ app.get("/", (req, res) => {
 // Start Express server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log((`\n✅ Server is live on port ${PORT}`));
-  console.log((`🌐 Healthcheck: http://localhost:${PORT}/health\n`));
+  console.log(colors.green(`\n✅ Server is live on port ${PORT}`));
+  console.log(colors.cyan(`🌐 Healthcheck: http://localhost:${PORT}/health\n`));
 });
