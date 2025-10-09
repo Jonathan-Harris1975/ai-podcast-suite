@@ -11,14 +11,7 @@ const {
 
 export async function validateR2Once() {
   console.log("🌐 Validating Cloudflare R2 connectivity...");
-  const s3 = new S3Client({
-    region: R2_REGION || "auto",
-    endpoint: R2_ENDPOINT,
-    credentials: {
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_ACCESS_KEY,
-    },
-  });
+  const s3 = /* replaced: use shared s3 from services/r2-client.js */ s3;
   try {
     await s3.send(new HeadBucketCommand({ Bucket: R2_BUCKET_RSS_FEEDS }));
     console.log(`✅ Successfully connected to R2 bucket "${R2_BUCKET_RSS_FEEDS}".`);
@@ -31,3 +24,5 @@ export async function validateR2Once() {
   }
   console.log("🧩 R2 validation complete.");
 }
+
+await validateR2Once();

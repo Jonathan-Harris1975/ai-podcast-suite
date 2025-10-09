@@ -1,8 +1,5 @@
 /**
- * Cloudflare R2 Client – Master Shared Instance
- * ---------------------------------------------
- * Single source of truth across all services.
- * No ping/retry loops. On-demand single HeadBucket check.
+ * Cloudflare R2 Client – Master Shared Instance (no ping/retry)
  */
 import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
 import fs from "node:fs";
