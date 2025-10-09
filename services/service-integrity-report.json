@@ -1,0 +1,19 @@
+{
+  "services_processed": [
+    "artwork",
+    "rss-feed-creator",
+    "script",
+    "tts"
+  ],
+  "removed_redundant_files": [],
+  "patched_files": [],
+  "notes": [
+    "Missing service dir: artwork",
+    "Missing service dir: rss-feed-creator",
+    "Missing service dir: script",
+    "Missing service dir: tts",
+    "Removed service-level dotenv/env checks; root-only validation.",
+    "Enforced shared R2 client usage in all services.",
+    "Removed any legacy ping/attempt logs if present."
+  ]
+}
