@@ -1,8 +1,8 @@
-import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../r2-client.js";
 // services/rss-feed-creator/bootstrap.js
 import fs from "fs/promises";
 import path from "path";
-import { putText, putJson } from "./utils/r2-client.js";
+import {putText, putJson} from "./utils/r2-client.js";
 import { log } from "../../utils/logger.js";
 
 const dataDir = "/app/services/rss-feed-creator/data";
