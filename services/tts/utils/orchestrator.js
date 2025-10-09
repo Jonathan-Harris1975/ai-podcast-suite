@@ -1,3 +1,4 @@
+import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 // utils/orchestrator.js
 import { processTTS } from "./ttsProcessor.js";
 import { mergeChunks } from "./mergeprocessor.js";
