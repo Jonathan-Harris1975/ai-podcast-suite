@@ -1,8 +1,8 @@
 /**
  * Cloudflare R2 Client – Master Shared Instance
  * ---------------------------------------------
- * Used by all services (script, TTS, artwork, rss-feed-creator)
- * for uploads, downloads, listings, and bucket URL helpers.
+ * Single source of truth for all services (script, TTS, artwork, rss-feed-creator).
+ * No ping/retry loops. Uses a single HeadBucket check on demand.
  */
 
 import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
@@ -49,7 +49,7 @@ const PUBLIC_BASES = {
 export function buildPublicUrl(bucket, key) {
   const base = PUBLIC_BASES[bucket];
   if (!base) return null;
-  return `${base.replace(/\/+$/, "")}/${key.replace(/^\/+/, "")}`;
+  return `${base.replace(/\/+$/, "")}/${String(key).replace(/^\/+/, "")}`;
 }
 
 export async function validateR2Once() {
@@ -62,22 +62,21 @@ export async function validateR2Once() {
     console.error("   Error:", err.name);
     console.error("   Message:", err.message);
     if (err.$metadata?.httpStatusCode) console.error("   HTTP:", err.$metadata.httpStatusCode);
+    // do not exit here; env-checker is responsible for hard-stop; this is a connectivity probe.
   }
   console.log("🧩 R2 validation complete.");
 }
 
 export async function uploadBuffer({ bucket, key, body, contentType }) {
-  if (!bucket || !key || !body) throw new Error("uploadBuffer: bucket, key, and body are required.");
+  if (!bucket || !key || body == null) throw new Error("uploadBuffer: bucket, key, and body are required.");
   console.log(`⬆️  Uploading ${key} → ${bucket}`);
 
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: body,
-      ContentType: contentType,
-    })
-  );
+  await s3.send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+  }));
 
   const url = buildPublicUrl(bucket, key);
   if (url) console.log(`✅ Public URL: ${url}`);
@@ -89,9 +88,7 @@ export async function listKeys({ bucket, prefix = "" }) {
   const out = [];
   let token;
   do {
-    const res = await s3.send(
-      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token })
-    );
+    const res = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }));
     (res.Contents || []).forEach((o) => out.push(o.Key));
     token = res.IsTruncated ? res.NextContinuationToken : undefined;
   } while (token);
@@ -111,6 +108,9 @@ export async function downloadToFile({ bucket, key, filepath }) {
     res.Body.pipe(ws);
     res.Body.on("error", reject);
     ws.on("finish", resolve);
+    ws.on("error", reject);
   });
   return filepath;
-      }
+}
+
+export default s3;
