@@ -1,3 +1,4 @@
+import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 // utils/scriptComposer.js
 import chunkText from './chunkText.js';
 import editAndFormat from './editAndFormat.js';

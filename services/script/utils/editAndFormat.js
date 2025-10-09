@@ -1,3 +1,4 @@
+import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 // utils/editAndFormat.js
 
 // A small helper to add subtle random bias in word choice / punctuation

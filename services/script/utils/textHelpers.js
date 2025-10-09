@@ -1,3 +1,4 @@
+import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 export function cleanTranscript(text) {
   return text
     .replace(/\n{3,}/g, '\n\n')

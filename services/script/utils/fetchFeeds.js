@@ -1,3 +1,4 @@
+import { s3, R2_BUCKETS, validateR2Once, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
 // utils/fetchFeeds.js
 import Parser from "rss-parser";
 import durationRotator from './durationRotator.js';
