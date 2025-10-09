@@ -1,9 +1,9 @@
-import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../../r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../r2-client.js";
 // services/bootstrap.js
 import fs from "fs";
 import path from "path";
 import { log } from "../../../utils/logger.js";
-import { putJson, putText, getObject } from "../utils/r2-client.js";
+import {putJson, putText, getObject} from "../utils/r2-client.js";
 
 // Hard-coded list of required bootstrap files
 const REQUIRED_FILES = [
