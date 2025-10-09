@@ -1,70 +1,111 @@
-/**
- * Cloudflare R2 Client (Unified)
- * -----------------------------------------------
- * Used across all services in the AI Podcast & Newsletter Suite.
- * - Handles connectivity to Cloudflare R2 via AWS SDK v3 (S3Client).
- * - Performs a one-time bucket validation on startup.
- * - No ping, no retry loops — clean for Shiper deployment.
- */
+import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { log } from "./logger.js";
 
-import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
+const endpoint =
+  process.env.R2_ENDPOINT ||
+  (process.env.R2_ACCOUNT_ID
+    ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+    : undefined);
 
-const {
-  R2_ENDPOINT,
-  R2_REGION,
-  R2_ACCESS_KEY_ID,
-  R2_SECRET_ACCESS_KEY,
-  R2_BUCKET_RSS_FEEDS
-} = process.env;
-
-// ────────────────────────────────────────────────
-// Sanity check: ensure all core env vars exist
-// ────────────────────────────────────────────────
-const required = [
-  "R2_ENDPOINT",
-  "R2_REGION",
-  "R2_ACCESS_KEY_ID",
-  "R2_SECRET_ACCESS_KEY",
-  "R2_BUCKET_RSS_FEEDS"
-];
-const missing = required.filter((v) => !process.env[v]);
-if (missing.length > 0) {
-  console.error("🚨 Missing R2 environment variables:", missing.join(", "));
-  throw new Error("R2 configuration incomplete.");
+if (!endpoint) {
+  log.warn("⚠️ R2 endpoint not set. Set R2_ENDPOINT or R2_ACCOUNT_ID.");
 }
 
-// ────────────────────────────────────────────────
-// Create the S3-compatible R2 client
-// ────────────────────────────────────────────────
-export const r2Client = new S3Client({
-  region: R2_REGION || "auto",
-  endpoint: R2_ENDPOINT,
+const s3 = new S3Client({
+  region: "auto",
+  endpoint,
+  forcePathStyle: true,
   credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_KEY
   }
 });
 
-// ────────────────────────────────────────────────
-// Validate connectivity by checking one real bucket
-// ────────────────────────────────────────────────
-export const validateR2 = async () => {
-  console.log("🌐 Checking Cloudflare R2 connectivity...");
-  try {
-    await r2Client.send(new HeadBucketCommand({ Bucket: R2_BUCKET_RSS_FEEDS }));
-    console.log(`✅ Successfully connected to R2 bucket "${R2_BUCKET_RSS_FEEDS}".`);
-  } catch (err) {
-    console.error("🚨 R2 connectivity check failed:");
-    console.error("   Error:", err.name);
-    console.error("   Message:", err.message);
-    if (err.$metadata?.httpStatusCode) console.error("   HTTP:", err.$metadata.httpStatusCode);
-  }
-  console.log("🧩 R2 validation complete.");
+const BUCKETS = {
+  RAW_TEXT: process.env.R2_BUCKET_RAW_TEXT,
+  RAW: process.env.R2_BUCKET_RAW,
+  MERGED: process.env.BUCKET_MERGED || process.env.R2_BUCKET_MERGED,
+  PODCAST: process.env.R2_BUCKET_PODCAST,
+  META: process.env.R2_META_BUCKET
 };
 
-// Automatically run the validation once at import
-validateR2().catch((err) => {
-  console.error("❌ R2 validation error:", err.message);
-});
+const PUBLIC_BASES = {
+  [BUCKETS.RAW_TEXT]: process.env.R2_PUBLIC_BASE_URL_RAW_TEXT,
+  [BUCKETS.RAW]: process.env.R2_PUBLIC_BASE_URL_RAW,
+  [BUCKETS.MERGED]: process.env.R2_PUBLIC_BASE_URL_MERGE,
+  [BUCKETS.PODCAST]: process.env.R2_PUBLIC_BASE_URL_PODCAST,
+  [BUCKETS.META]: process.env.R2_PUBLIC_BASE_URL_META
+};
 
-export default r2Client;
+export function buildPublicUrl(bucket, key) {
+  const base = PUBLIC_BASES[bucket];
+  if (!base) return null;
+  return `${base.replace(/\/+$/, "")}/${key.replace(/^\/+/, "")}`;
+}
+
+export async function uploadBuffer({ bucket, key, body, contentType }) {
+  if (!bucket) throw new Error("uploadBuffer: bucket is required");
+  if (!key) throw new Error("uploadBuffer: key is required");
+  if (body == null) throw new Error("uploadBuffer: body is required");
+
+  log.info({ bucket, key }, "⬆️ Uploading to R2");
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType
+    })
+  );
+
+  const url = buildPublicUrl(bucket, key);
+  if (url) {
+    log.info({ url }, "✅ R2 object public URL");
+  } else {
+    log.warn({ bucket, key }, "⚠️ No public base URL configured for this bucket");
+  }
+  return { bucket, key, url };
+}
+
+export async function listKeys({ bucket, prefix }) {
+  if (!bucket) throw new Error("listKeys: bucket is required");
+  const out = [];
+  let ContinuationToken;
+
+  do {
+    const res = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix || "",
+        ContinuationToken
+      })
+    );
+    (res.Contents || []).forEach((obj) => out.push(obj.Key));
+    ContinuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+  } while (ContinuationToken);
+
+  log.info({ bucket, prefix, count: out.length }, "📦 R2 listKeys");
+  return out;
+}
+
+export async function getObjectAsText({ bucket, key }) {
+  const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  return await res.Body.transformToString("utf-8");
+}
+
+export async function downloadToFile({ bucket, key, filepath }) {
+  const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  const fs = await import("node:fs");
+  const ws = fs.createWriteStream(filepath);
+  await new Promise((resolve, reject) => {
+    res.Body.pipe(ws);
+    res.Body.on("error", reject);
+    ws.on("finish", resolve);
+    ws.on("error", reject);
+  });
+  return filepath;
+}
+
+export const R2_BUCKETS = BUCKETS;
+export default s3;
