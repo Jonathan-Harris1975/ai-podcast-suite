@@ -4,7 +4,7 @@
  */
 import express from "express";
 import { validateEnv } from "./services/env-checker.js";
-import { validateR2ConfigOnce } from "./services/r2-client.js";
+import {validateR2ConfigOnce} from "./services/r2-client.js";
 
 const app = express();
 app.use(express.json());
