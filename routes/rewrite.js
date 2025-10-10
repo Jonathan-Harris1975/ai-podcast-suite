@@ -6,17 +6,18 @@ const router = express.Router();
 
 /**
  * POST /api/rewrite
- * Fire-and-forget rewrite trigger for RSS feed refresh.
+ * Triggers the rewrite pipeline (fire & forget)
  */
 router.post("/", async (req, res) => {
+  console.log("🧩 rss:rewrite-pipeline-start");
   try {
-    // trigger without blocking
     runRewritePipeline()
-      .then(result => console.log("🧩 rss:rewrite-pipeline-complete", result))
-      .catch(err => console.error("🧩 rss:rewrite-pipeline-error", err));
+      .then(result => console.log("🌐 rss:rewrite-pipeline-complete", result))
+      .catch(err => console.error("❌ rss:rewrite-pipeline-error", err.message));
 
-    res.json({ ok: true, message: "Rewrite pipeline triggered" });
+    res.status(202).json({ ok: true, message: "Rewrite pipeline started" });
   } catch (err) {
+    console.error("❌ rss:rewrite-pipeline-trigger-failed", err);
     res.status(500).json({ error: err.message });
   }
 });
