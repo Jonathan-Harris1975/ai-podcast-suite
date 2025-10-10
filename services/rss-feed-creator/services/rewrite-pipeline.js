@@ -1,12 +1,17 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../shared/utils/r2-client.js";
 // /services/rss-feed-creator/services/rewrite-pipeline.js
-import fetch from "node-fetch";
+// Built-in fetch version (Node 18+/22+ on Shiper)
+// Removes node-fetch import completely.
+
 import Parser from "rss-parser";
 import { log } from "../../../utils/logger.js";
-import {getObject, putJson} from "../../shared/utils/r2-client.js";
+import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "../../shared/utils/r2-client.js";
+import { getObject, putJson } from "../../shared/utils/r2-client.js";
 import { callOpenRouterModel } from "../utils/models.js";
 import { rebuildRss } from "./build-rss.js";
 import { createShortLink } from "../utils/shortio.js";
+
+// ✅ Use native fetch available in Node 18+
+const fetch = globalThis.fetch;
 
 const parser = new Parser();
 
@@ -21,7 +26,6 @@ const FEEDS_PER_RUN = 5;
 const URLS_PER_RUN = 1;
 const MAX_ITEMS_PER_FEED = parseInt(process.env.MAX_ITEMS_PER_FEED || "3", 10);
 
-// ──
 // Helpers
 function parseList(text) {
   if (!text) return [];
@@ -33,11 +37,12 @@ function parseList(text) {
 
 function clampRewrite(s) {
   if (!s) return "";
-  s = s.replace(/^#+\s*/gm, "")
-       .replace(/\*\*[^*]+\*\*/g, "")
-       .replace(/(?:^|\n)(?:Podcast|Intro|Headline)[:\-]/gi, "")
-       .replace(/\n+/g, " ")
-       .trim();
+  s = s
+    .replace(/^#+\s*/gm, "")
+    .replace(/\*\*[^*]+\*\*/g, "")
+    .replace(/(?:^|\n)(?:Podcast|Intro|Headline)[:\-]/gi, "")
+    .replace(/\n+/g, " ")
+    .trim();
   const min = 200, max = 400;
   if (s.length <= max) return s;
   let cut = s.slice(0, max);
@@ -66,13 +71,12 @@ function wrapIndex(start, count, arr) {
   return out;
 }
 
-// ──
 // Main pipeline
 export async function runRewritePipeline() {
   log.info("🚀 Starting rewrite pipeline");
 
   try {
-    // 1️⃣  Load sources
+    // 1️⃣ Load sources
     const [feedsText, urlsText, cursorRaw] = await Promise.all([
       getObject(FEEDS_KEY),
       getObject(URLS_KEY),
@@ -85,19 +89,17 @@ export async function runRewritePipeline() {
     const urls = parseList(urlsText);
     const cursor = cursorRaw ? JSON.parse(cursorRaw) : { feedIndex: 0, urlIndex: 0 };
 
-    log.debug(`[Stage 1.1] Parsed feeds:${feeds.length}, urls:${urls.length}, cursor:${JSON.stringify(cursor)}`);
-
     if (!feeds.length && !urls.length) {
       log.error("❌ No feeds.txt or urls.txt content found in R2 — cannot continue.");
       throw new Error("feeds.txt and urls.txt are empty or missing in R2");
     }
 
-    // 2️⃣  Select current rotation slice
+    // 2️⃣ Select rotation slice
     const feedsSlice = wrapIndex(cursor.feedIndex, FEEDS_PER_RUN, feeds);
     const urlsSlice = wrapIndex(cursor.urlIndex, URLS_PER_RUN, urls);
     log.debug(`[Stage 2] Using feedsSlice:${JSON.stringify(feedsSlice)} urlsSlice:${JSON.stringify(urlsSlice)}`);
 
-    // 3️⃣  Fetch feed data
+    // 3️⃣ Fetch feed data
     const fetchedFeeds = [];
     for (const feedUrl of feedsSlice) {
       try {
@@ -111,7 +113,7 @@ export async function runRewritePipeline() {
       }
     }
 
-    // 4️⃣  Generate rewrites via model
+    // 4️⃣ Generate rewrites
     const rewrittenItems = [];
     for (const feed of fetchedFeeds) {
       for (const item of (feed.items || []).slice(0, MAX_ITEMS_PER_FEED)) {
@@ -135,7 +137,7 @@ export async function runRewritePipeline() {
 
     log.info(`[Stage 4] Rewritten items generated: ${rewrittenItems.length}`);
 
-    // 5️⃣  Update cursor
+    // 5️⃣ Update cursor
     const nextCursor = {
       feedIndex: (cursor.feedIndex + FEEDS_PER_RUN) % (feeds.length || 1),
       urlIndex: (cursor.urlIndex + URLS_PER_RUN) % (urls.length || 1)
@@ -144,11 +146,11 @@ export async function runRewritePipeline() {
     await putJson(CURSOR_KEY, nextCursor);
     log.debug(`[Stage 5] Cursor updated: ${JSON.stringify(nextCursor)}`);
 
-    // 6️⃣  Save rewritten data back to R2
+    // 6️⃣ Save rewritten data back to R2
     await putJson(ITEMS_KEY, rewrittenItems);
     log.info(`[Stage 6] Saved ${rewrittenItems.length} rewritten items to ${ITEMS_KEY}`);
 
-    // 7️⃣  Rebuild RSS
+    // 7️⃣ Rebuild RSS
     try {
       await rebuildRss(rewrittenItems);
       log.info("✅ RSS successfully rebuilt and uploaded");
@@ -164,4 +166,3 @@ export async function runRewritePipeline() {
     log.error(err.stack);
     throw err;
   }
-}
