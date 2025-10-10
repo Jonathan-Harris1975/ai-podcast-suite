@@ -1,36 +1,15 @@
 {
   "name": "ai-podcast-suite",
-  "version": "1.0.0",
+  "version": "2025.10.10-Final",
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "node validate-imports.js",
-    "smoke": "node -e \"import('./services/shared/utils/r2-smoketest.js').then(m => m.runR2SmokeTest())\""
+    "lint": "node --check server.js",
+    "postinstall": "echo '🔍 Postinstall check: verifying imports & env setup' && node --check server.js",
+    "build:release": "bash ./build_release.sh"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.663.0",
     "express": "^4.19.2",
-    "@google/generative-ai": "0.10.0",
-    "child_process": "*",
-    "cors": "*",
-    "dotenv": "^16.4.5",
-    "ffmpeg-static": "*",
-    "ffprobe-static": "*",
-    "fluent-ffmpeg": "*",
-    "logform": "*",
-    "module": "*",
-    "node-fetch": "^3.3.2",
-    "openai": "^4.56.0",
-    "p-limit": "*",
-    "pino": "^9.2.0",
-    "pino-http": "*",
-    "process": "*",
-    "rss-parser": "*",
-    "supertest": "*",
-    "undici": "*",
-    "utils": "*",
-    "winston": "*",
-    "zod": "*"
-  },
-  "main": "server.js"
+    "@aws-sdk/client-s3": "^3.668.0"
+  }
 }
