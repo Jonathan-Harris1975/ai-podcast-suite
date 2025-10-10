@@ -1,119 +1,84 @@
-// AI Podcast Suite Server — Shiper Optimized v2025.10.10-RSS-Mount
-// Health pings, JSON logging, RSS auto-mount, and safe fallbacks.
+// AI Podcast Suite Server – Shiper Optimized v2025.10.10-FINAL
+// /health + /api/rewrite + /api/podcast + /api/rss-feed (fire & forget)
 
 import express from "express";
 import process from "node:process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+import { pathToFileURL } from "node:url";
 
 const app = express();
 app.use(express.json());
 
-const PORT      = process.env.PORT || 3000;
-const VERSION   = "2025.10.10-RSS-Mount";
-const NODE_ENV  = (process.env.NODE_ENV || "production")
-  .replace(/^\w/, c => c.toUpperCase()); // pretty print
+const PORT = process.env.PORT || 3000;
+const VERSION = "2025.10.10-FINAL";
+const NODE_ENV = process.env.NODE_ENV || "Production";
 
-// ---------- JSON LOGGING ----------
-function log(message, extra = undefined) {
-  const line = { time: new Date().toISOString(), message };
-  if (extra && typeof extra === "object") Object.assign(line, extra);
-  process.stdout.write(JSON.stringify(line) + "\n");
-}
+// --- LOGGER (JSON + emoji, instant flush) ---
+const log = (emoji, message, meta = {}) => {
+  const entry = {
+    time: new Date().toISOString(),
+    message: `${emoji} ${message}`,
+    ...(Object.keys(meta).length ? { meta } : {})
+  };
+  process.stdout.write(JSON.stringify(entry) + "\n");
+};
 
-// Minimal request logger (safe for Shiper)
-app.use((req, res, next) => {
-  const started = Date.now();
-  res.on("finish", () => {
-    log("http", {
-      method: req.method,
-      path: req.originalUrl || req.url,
-      status: res.statusCode,
-      ms: Date.now() - started
-    });
-  });
-  next();
-});
-
-// ---------- HEALTH ----------
-app.get("/health", (_req, res) => {
-  log("health-hit");
-  res.status(200).json({
+// --- HEALTH ---
+app.get("/health", (req, res) => {
+  log("🩺", "Health check hit");
+  res.json({
     status: "ok",
-    uptime: Math.round(process.uptime()) + "s",
     version: VERSION,
-    environment: NODE_ENV,
+    uptime: Math.round(process.uptime()) + "s",
+    environment: NODE_ENV
   });
 });
 
-// ---------- REWRITE (simple) ----------
+// --- REWRITE ---
 app.post("/api/rewrite", (req, res) => {
-  const text = (req.body?.text || "").toString();
-  const rewritten = text.replace(/\s+/g, " ").trim();
-  log("rewrite", { in: text.length, out: rewritten.length });
+  const text = req.body?.text || "";
+  const rewritten = text.replace(/\n+/g, " ").replace(/\s{2,}/g, " ").trim();
+  log("✏️", "Rewrite endpoint hit", { chars: text.length });
   res.json({ success: true, rewritten });
 });
 
-// ---------- PODCAST (stub) ----------
+// --- PODCAST ---
 app.post("/api/podcast", (req, res) => {
-  const script = (req.body?.script || "").toString();
-  const voice  = (req.body?.voice  || "default").toString();
-  log("podcast", { chars: script.length, voice });
-  res.json({ success: true, message: "Podcast request received", chars: script.length, voice });
+  const script = req.body?.script || "";
+  const voice = req.body?.voice || "default";
+  log("🎙️", "Podcast endpoint hit", { chars: script.length, voice });
+  res.json({
+    success: true,
+    message: "Podcast request received",
+    chars: script.length,
+    voice
+  });
 });
 
-// ---------- RSS FEED CREATOR AUTO-MOUNT ----------
-async function tryMountRssService() {
-  log("rss-init: probing");
-
-  const candidate = path.resolve(__dirname, "services/rss-feed-creator/index.js");
-
-  if (!fs.existsSync(candidate)) {
-    log("rss-missing", { tried: candidate });
-    return;
-  }
-
-  try {
-    const mod = await import(pathToFileURL(candidate).href);
-
-    // In many setups, default export is an Express app()
-    const maybeApp = mod?.default;
-    if (typeof maybeApp === "function") {
-      // If default export is an express() or a middleware function, mount it
-      app.use("/rss", maybeApp);
-      log("rss-mounted", { mountPath: "/rss", from: "services/rss-feed-creator/index.js" });
-    } else if (typeof mod?.startFeedCreator === "function") {
-      await mod.startFeedCreator();
-      log("rss-started", { mode: "startFeedCreator()" });
-    } else {
-      log("rss-no-entry", { note: "No express app() or start function exported" });
+// --- RSS FEED CREATOR (Fire & Forget) ---
+app.post("/api/rss-feed", (req, res) => {
+  log("🧩", "RSS Feed Creator triggered (fire-and-forget)");
+  setImmediate(async () => {
+    try {
+      const rssPath = path.resolve("services/rss-feed-creator/index.js");
+      const mod = await import(pathToFileURL(rssPath).href);
+      const fn = mod.default || mod.startFeedCreator;
+      if (typeof fn === "function") {
+        await fn();
+        log("📰", "RSS Feed Creator initialized successfully");
+      } else {
+        log("⚠️", "RSS Feed Creator found but missing entry function");
+      }
+    } catch (err) {
+      log("❌", "RSS Feed Creator failed", { error: err.message });
     }
-  } catch (err) {
-    log("rss-failed", { error: err?.message || String(err) });
-  }
-}
-
-// ---------- 404 (so you see misses in logs) ----------
-app.use((req, res) => {
-  log("404", { method: req.method, path: req.originalUrl || req.url });
-  res.status(404).json({ error: "Not found" });
+  });
+  res.json({ success: true, message: "RSS Feed Creator started in background" });
 });
 
-// ---------- START ----------
-app.listen(PORT, async () => {
-  log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
-  await tryMountRssService();
-});
+// --- START SERVER ---
+app.listen(PORT, () => log("🚀", `Server running on port ${PORT} (${NODE_ENV})`));
 
-// ---------- HEARTBEAT ----------
-setInterval(() => {
-  log("heartbeat", { uptime_s: Math.round(process.uptime()) });
-}, 5 * 60 * 1000);
-
-// ---------- CLEAN EXIT ----------
-process.on("SIGTERM", () => { log("SIGTERM"); process.exit(0); });
-process.on("SIGINT",  () => { log("SIGINT");  process.exit(0); });
+// --- HEARTBEAT (every 5 min) ---
+setInterval(() => log("⏱️", `Heartbeat: uptime ${Math.round(process.uptime())}s`), 300000);
