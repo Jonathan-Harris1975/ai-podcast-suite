@@ -4,7 +4,7 @@ import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { log } from "../utils/logger.js";
-import { getObject, putText, putJson } from "./rss-feed-creator/utils/r2-client.js";
+import { getObject, putText, putJson  } from "./shared/utils/r2-client.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
