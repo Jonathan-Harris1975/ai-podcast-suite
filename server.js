@@ -34,16 +34,19 @@ try {
   const rewritePath = path.join(routesDir, "rewrite.js");
   const podcastPath = path.join(routesDir, "podcast.js");
 
-  log("🔍 Importing routes from", { rewritePath, podcastPath });
+  log("🔍 Importing routes from", { rewritePath: rewritePath, podcastPath: podcastPath });
 
-  const rewriteModule = await import(pathToFileURL(rewritePath).href);
-  const podcastModule = await import(pathToFileURL(podcastPath).href);
+  const rewriteModulePath = pathToFileURL(rewritePath).href;
+  const podcastModulePath = pathToFileURL(podcastPath).href;
+
+  const rewriteModule = await import(rewriteModulePath);
+  const podcastModule = await import(podcastModulePath);
 
   if (rewriteModule?.default && typeof rewriteModule.default === "function") {
     app.use("/api/rewrite", rewriteModule.default);
     log("✅ Mounted /api/rewrite");
   } else {
-    log("❌ rewrite.js did not export a valid router", { keys: Object.keys(rewriteModule) });
+    log("❌ rewrite.js did not export a valid router", { rewriteModuleKeys: Object.keys(rewriteModule) });
   }
 
   if (podcastModule?.default && typeof podcastModule.default === "function") {
@@ -78,12 +81,12 @@ try {
 
   log("✅ All routes attached successfully");
 } catch (err) {
-  log("❌ Route load failed", { error: err.message });
+  log("❌ Route load failed", { errorMessage: err.message });
 }
 
 // ── 404 handler (must be last) ─────────────
 app.use((req, res) => {
-  log("⚠️ 404 Not Found", { path: req.originalUrl, method: req.method });
+  log("⚠️ 404 Not Found", { originalPath: req.originalUrl, requestMethod: req.method });
   res.status(404).json({ error: "Endpoint not found" });
 });
 
