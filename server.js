@@ -48,19 +48,22 @@ async function loadRoutes() {
     }
 
     const podcastModule = await import("./routes/podcast.js");
-    if (podcastModule.default) app.use("/api/podcast", podcastModule.default);
+    if (podcastModule.default) {
+      app.use("/api/podcast", podcastModule.default);
+      log("✅ /api/podcast route mounted successfully");
+    }
+
+    // ✅ 404 should be last — after all routes are mounted
+    app.use((req, res) => {
+      log("⚠️ 404 Not Found", { path: req.originalUrl });
+      res.status(404).json({ error: "Endpoint not found" });
+    });
 
     log("✅ Routes loaded successfully");
   } catch (err) {
     log("❌ Route loading failed", { error: err.message });
   }
 }
-
-// ---- 404 ----
-app.use((req, res) => {
-  log("⚠️ 404 Not Found", { path: req.originalUrl });
-  res.status(404).json({ error: "Endpoint not found" });
-});
 
 // ---- START ----
 app.listen(PORT, async () => {
