@@ -132,4 +132,4 @@ export async function validateR2ConfigOnce() {
     throw new Error("Missing R2 credentials or endpoint in environment.");
   }
   console.log("✅ R2 configuration OK");
-      }
+                               }
