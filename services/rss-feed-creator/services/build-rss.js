@@ -1,5 +1,6 @@
 // Build and upload RSS XML to R2
-import { putText } from "../../shared/utils/r2-client.js";
+import r2Client from "../../shared/utils/r2-client.js";
+const { putText } = r2Client;
 
 export async function rebuildRss(items = []) {
   const now = new Date().toISOString();
