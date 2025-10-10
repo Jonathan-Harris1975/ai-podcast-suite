@@ -1,51 +1,31 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../shared/utils/r2-client.js";
-// services/build-rss.js
-import { log } from "../../../utils/logger.js";
-import { putText } from "../../shared/utils/r2-client.js"; // ✅ fixed import
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-
-const BUCKET = process.env.R2_BUCKET_RSS || "rss-feeds";
-
-function cdata(s = "") {
-  return `<![CDATA[${String(s).replaceAll("]]>", "]]]]><![CDATA[>")}]]>`;
-}
+// Build and upload RSS XML to R2
+import { putText } from "../../shared/utils/r2-client.js";
 
 export async function rebuildRss(items = []) {
-  try {
-    const rssItems = items
-      .map(
-        (item) => `
-      <item>
-        <guid isPermaLink="false">${item.guid}</guid>
-        <title>${cdata(item.title || "Untitled")}</title>
-        <link>${item.shortUrl || item.url}</link>
-        <description>${cdata(item.rewrite || "")}</description>
-        <pubDate>${new Date(item.ts || Date.now()).toUTCString()}</pubDate>
-      </item>`
-      )
-      .join("\n");
+  const now = new Date().toISOString();
+  const xmlItems = items.map((it, i) => {
+    const title = escapeXml(it.title || `Item ${i+1}`);
+    const link  = escapeXml(it.link || "https://example.com");
+    const guid  = escapeXml(it.link ? `${it.link}#${i+1}` : `guid-${i+1}`);
+    const pub   = new Date(it.pubDate || Date.now()).toISOString();
+    const src   = it.source ? `<source>${escapeXml(it.source)}</source>` : "";
+    return `<item><title>${title}</title><link>${link}</link><guid>${guid}</guid><pubDate>${pub}</pubDate>${src}</item>`;
+  }).join("");
 
-    const feedUrl = `${process.env.R2_ENDPOINT}/${BUCKET}/feed.xml`;
-
-    const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>${cdata(process.env.PODCAST_TITLE || "AI Podcast")}</title>
-    <link>${process.env.PODCAST_URL || "https://example.com"}</link>
-    <description>${cdata(
-      process.env.PODCAST_DESCRIPTION || "Weekly AI updates"
-    )}</description>
-    <language>en-gb</language>
-    ${rssItems}
+    <title>AI Podcast Suite Feed</title>
+    <link>${process.env.R2_PUBLIC_BASE_URL_RSS || "https://example.com"}</link>
+    <description>Auto-generated feed from feeds.txt + urls.txt</description>
+    <lastBuildDate>${now}</lastBuildDate>
+    ${xmlItems}
   </channel>
 </rss>`;
 
-    await putText(`${BUCKET}/feed.xml`, rssXml); // ✅ save feed to R2
+  await putText("rss.xml", xml);
+}
 
-    log.info(`✅ RSS feed rebuilt successfully → ${feedUrl}`);
-    return { success: true, url: feedUrl };
-  } catch (err) {
-    log.error("❌ Failed to rebuild RSS feed:", err);
-    throw err;
-  }
-                                    }
+function escapeXml(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
