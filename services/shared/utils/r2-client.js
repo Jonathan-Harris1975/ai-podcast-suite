@@ -1,4 +1,4 @@
-// services/shared/utils/r2-client.js
+// Centralized Cloudflare R2 client (lenient validator)
 import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 
 export const r2 = new S3Client({
@@ -10,27 +10,23 @@ export const r2 = new S3Client({
   },
 });
 
-export function buildPublicUrl(base, key) {
-  if (!base) return null;
-  const noSlash = base.endsWith("/") ? base.slice(0, -1) : base;
-  return `${noSlash}/${key}`;
-}
-
 let _validated = false;
+/**
+ * Lenient one-time configuration check.
+ * Logs problems but NEVER throws (so Shiper keeps booting).
+ */
 export async function validateR2ConfigOnce() {
   if (_validated) return true;
   _validated = true;
 
-  const missing = [];
-  for (const v of ["R2_ENDPOINT","R2_REGION","R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY"]) {
-    if (!process.env[v]) missing.push(v);
-  }
+  const req = ["R2_ENDPOINT","R2_REGION","R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY"];
+  const missing = req.filter(k => !process.env[k]);
   if (missing.length) {
-    console.warn(`⚠️  R2 configuration: missing envs: ${missing.join(", ")}`);
+    console.warn(`⚠️ R2 configuration missing: ${missing.join(", ")}`);
     return false;
   }
 
-  const candidates = [
+  const buckets = [
     process.env.R2_BUCKET_RSS_FEEDS,
     process.env.R2_BUCKET_ARTWORK,
     process.env.R2_BUCKET_RAW_TEXT,
@@ -39,19 +35,19 @@ export async function validateR2ConfigOnce() {
     process.env.R2_BUCKET_META,
   ].filter(Boolean);
 
-  if (!candidates.length) {
-    console.log("ℹ️  R2 validation: no buckets set; skipping HeadBucket check.");
+  if (!buckets.length) {
+    console.log("ℹ️ R2 validation: no buckets set; skipping HeadBucket check.");
     return true;
   }
 
-  const bucket = candidates[0];
+  const bucket = buckets[0];
   try {
     await r2.send(new HeadBucketCommand({ Bucket: bucket }));
     console.log("✅ R2 configuration OK");
     return true;
   } catch (err) {
-    const code = (err && (err.$metadata && err.$metadata.httpStatusCode)) || err?.name || "UnknownError";
-    console.warn(`⚠️  R2 HeadBucket on '${bucket}' failed: ${code}. Startup continues.`);
+    const code = (err && err.$metadata && err.$metadata.httpStatusCode) || err?.name || "UnknownError";
+    console.warn(`⚠️ R2 HeadBucket '${bucket}' failed: ${code}. Startup continues.`);
     return false;
   }
 }
