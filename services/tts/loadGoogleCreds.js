@@ -1,4 +1,4 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../shared/utils/r2-client.js";
 // services/tts/loadGoogleCreds.js
 import fs from "fs";
 import path from "path";
