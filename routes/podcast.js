@@ -6,7 +6,7 @@ import { exec } from "child_process";
 const router = express.Router();
 
 // POST /start/:sessionId
-router.post("/start/:sessionId", async (req, res) => {
+router.post("/podcast/:sessionId", async (req, res) => {
   const { sessionId } = req.params;
   log.info(`🚀 Starting AI Podcast pipeline for session: ${sessionId}`);
 
