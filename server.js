@@ -1,6 +1,12 @@
-// server.js — AI Podcast Suite (2025.10.10-RouteFix-Final)
+// server.js — AI Podcast Suite (2025.10.10-FinalFix)
+// Ensures routes register before server starts
 import express from "express";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
@@ -24,54 +30,48 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ---- LOAD ROUTES ----
+// ---- LOAD ROUTES BEFORE SERVER START ----
 async function loadRoutes() {
   try {
     // ✅ REWRITE ROUTE
-    const rewriteModule = await import("./routes/rewrite.js");
-    log("🧭 rewrite import type", {
-      defaultType: typeof rewriteModule.default,
-      keys: Object.keys(rewriteModule),
-    });
-
-    const router = rewriteModule.default;
-    if (router && typeof router === "function") {
-      app.use("/api/rewrite", router);
-      log("✅ /api/rewrite attached to Express");
+    const rewriteModule = await import(path.join(__dirname, "routes/rewrite.js"));
+    const rewriteRouter = rewriteModule.default;
+    if (rewriteRouter && typeof rewriteRouter === "function") {
+      app.use("/api/rewrite", rewriteRouter);
+      log("✅ /api/rewrite route attached");
     } else {
-      log("❌ rewrite default export missing or not a router");
+      log("⚠️ rewrite route missing or invalid export");
     }
 
     // ✅ PODCAST ROUTE
-    const podcastModule = await import("./routes/podcast.js");
-    if (podcastModule?.default) {
+    const podcastModule = await import(path.join(__dirname, "routes/podcast.js"));
+    if (podcastModule?.default && typeof podcastModule.default === "function") {
       app.use("/api/podcast", podcastModule.default);
-      log("✅ /api/podcast attached to Express");
+      log("✅ /api/podcast route attached");
     }
 
-    // ✅ ROUTE LIST DEBUG
+    // ✅ DEBUG ROUTES
     const routes = app._router.stack
       .filter(r => r.route)
-      .map(r => r.route.path);
-    log("🧩 Registered paths", { routes });
-
+      .map(r => Object.keys(r.route.methods).map(m => `${m.toUpperCase()} ${r.route.path}`))
+      .flat();
+    log("🧭 Active routes", { routes });
     log("✅ Routes loaded successfully");
   } catch (err) {
     log("❌ Route loading failed", { error: err.message });
   }
 }
 
-// ---- INIT ----
+// ---- BOOTSTRAP THEN START SERVER ----
 (async () => {
   await loadRoutes();
 
-  // ---- 404 HANDLER (keep last) ----
+  // ---- 404 (after routes) ----
   app.use((req, res) => {
     log("⚠️ 404 Not Found", { path: req.originalUrl });
     res.status(404).json({ error: "Endpoint not found" });
   });
 
-  // ---- START SERVER ----
   app.listen(PORT, () => {
     log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
   });
