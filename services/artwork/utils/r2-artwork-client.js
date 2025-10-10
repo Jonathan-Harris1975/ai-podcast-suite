@@ -1,7 +1,7 @@
 // utils/r2-artwork-client.js
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
-import {s3, BUCKETS, uploadBuffer} from "../../r2-client.js";
+import {s3, BUCKETS, uploadBuffer} from "../../shared/utils/r2-client.js";
 const r2 = s3;
 
 /**
