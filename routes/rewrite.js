@@ -6,14 +6,14 @@ const router = express.Router();
 
 /**
  * POST /api/rewrite
- * Triggers the rewrite pipeline (fire & forget)
+ * Triggers the rewrite pipeline
  */
 router.post("/", async (req, res) => {
   console.log("🧩 rss:rewrite-pipeline-start");
   try {
     runRewritePipeline()
-      .then(result => console.log("🌐 rss:rewrite-pipeline-complete", result))
-      .catch(err => console.error("❌ rss:rewrite-pipeline-error", err.message));
+      .then(result => console.log("🧩 rss:rewrite-pipeline-complete", result))
+      .catch(err => console.error("🧩 rss:rewrite-pipeline-error", err.message));
 
     res.status(202).json({ ok: true, message: "Rewrite pipeline started" });
   } catch (err) {
