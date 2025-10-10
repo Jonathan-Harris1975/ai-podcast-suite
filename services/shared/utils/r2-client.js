@@ -16,19 +16,22 @@ const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_REGION = process.env.R2_REGION || "auto";
 const DEFAULT_BUCKET = process.env.R2_BUCKET_RSS_FEEDS || process.env.R2_BUCKET_PODCAST;
 
-if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-  console.warn("⚠️ R2 client missing required environment vars");
+let s3;
+
+if (R2_ENDPOINT && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) {
+  s3 = new S3Client({
+    region: R2_REGION,
+    endpoint: R2_ENDPOINT,
+    credentials: {
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+    },
+    forcePathStyle: true, // ✅ required for Cloudflare R2
+  });
+} else {
+  console.warn("⚠️ R2 client missing required environment vars. R2 functionality will be disabled.");
 }
 
-export const s3 = new S3Client({
-  region: R2_REGION,
-  endpoint: R2_ENDPOINT,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
-  forcePathStyle: true, // ✅ required for Cloudflare R2
-});
 
 // ────────────────────────────────────────────────
 // HELPERS
@@ -44,6 +47,7 @@ function streamToString(stream) {
 
 // Generic safe parser
 async function safeGetObject(bucket, key) {
+    if (!s3) return null;
   try {
     const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
     return await streamToString(res.Body);
@@ -66,6 +70,7 @@ export async function getObject(key, bucket = DEFAULT_BUCKET) {
 
 // ✅ List all object keys in a bucket
 export async function listKeys(bucket = DEFAULT_BUCKET, prefix = "") {
+    if (!s3) return [];
   try {
     const res = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }));
     return (res.Contents || []).map(o => o.Key);
@@ -77,6 +82,7 @@ export async function listKeys(bucket = DEFAULT_BUCKET, prefix = "") {
 
 // ✅ Upload JSON
 export async function putJson(key, obj, bucket = DEFAULT_BUCKET) {
+    if (!s3) throw new Error("R2 client not initialized");
   const body = JSON.stringify(obj, null, 2);
   try {
     await s3.send(
@@ -97,6 +103,7 @@ export async function putJson(key, obj, bucket = DEFAULT_BUCKET) {
 
 // ✅ Upload plain text
 export async function putText(key, text, bucket = DEFAULT_BUCKET) {
+    if (!s3) throw new Error("R2 client not initialized");
   const body = Buffer.from(String(text), "utf-8");
   try {
     await s3.send(
@@ -117,6 +124,7 @@ export async function putText(key, text, bucket = DEFAULT_BUCKET) {
 
 // ✅ Upload any binary buffer
 export async function uploadBuffer(bucket, key, buffer, contentType = "application/octet-stream") {
+    if (!s3) throw new Error("R2 client not initialized");
   try {
     await s3.send(
       new PutObjectCommand({
@@ -173,3 +181,4 @@ export default {
   uploadBuffer,
   R2_BUCKETS,
 };
+
