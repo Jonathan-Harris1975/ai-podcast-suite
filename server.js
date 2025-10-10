@@ -1,5 +1,6 @@
-// AI Podcast Suite Server – Shiper Optimized v2025.10.10
-// Stable for always-on /health pings + JSON logging
+// AI Podcast Suite Server – Shiper Optimized v2025.10.10-RSS
+// Stable for always-on /health pings, JSON logging, and auto-started RSS Feed Creator
+
 import express from "express";
 import process from "node:process";
 
@@ -7,7 +8,7 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const VERSION = "2025.10.10-Ship";
+const VERSION = "2025.10.10-RSS";
 const NODE_ENV = process.env.NODE_ENV || "production";
 
 // ---- LOGGING (instant flush to stdout for Shiper) ----
@@ -50,12 +51,49 @@ app.post("/api/podcast", (req, res) => {
   });
 });
 
-// ---- START ----
-app.listen(PORT, () => {
+// ---- RSS FEED CREATOR AUTO-START ----
+async function tryStartRSSFeedCreator() {
+  try {
+    log("🧩 Attempting to initialize RSS Feed Creator...");
+    const mod = await import("./services/rss-feed-creator/index.js").catch(() => null);
+
+    if (!mod) {
+      log("⚠️ RSS Feed Creator module not found at ./services/rss-feed-creator/index.js");
+      return;
+    }
+
+    if (typeof mod.default === "function") {
+      await mod.default();
+      log("📰 RSS Feed Creator initialized successfully (default export).");
+    } else if (typeof mod.startFeedCreator === "function") {
+      await mod.startFeedCreator();
+      log("📰 RSS Feed Creator started successfully (named export).");
+    } else {
+      log("⚠️ RSS Feed Creator loaded but has no valid start function.");
+    }
+  } catch (err) {
+    log("❌ RSS Feed Creator failed to start:", { error: err.message });
+  }
+}
+
+// ---- SERVER STARTUP ----
+app.listen(PORT, async () => {
   log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
+  await tryStartRSSFeedCreator();
 });
 
-// ---- OPTIONAL HEARTBEAT LOG (every 5 min to show life in Shiper) ----
+// ---- HEARTBEAT LOG (every 5 min) ----
 setInterval(() => {
   log(`⏱️ Heartbeat: uptime ${Math.round(process.uptime())}s`);
 }, 5 * 60 * 1000);
+
+// ---- CLEAN EXIT HANDLING ----
+process.on("SIGTERM", () => {
+  log("🛑 Received SIGTERM. Shutting down gracefully...");
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  log("🛑 Received SIGINT. Shutting down gracefully...");
+  process.exit(0);
+});
