@@ -1,15 +1,10 @@
-// AI Podcast Suite — Stable Production Server
-// Version: 2025.10.10-Routes-Fix
-// ✅ Modular route imports
-// ✅ Clean JSON logging
-// ✅ Always-on health and heartbeat
-// ✅ Correct path resolution for /routes folder
-// ✅ Shiper-verified for Node 22.x (ESM)
+// AI Podcast Suite Server – Final Shiper Production v2025.10.10
+// Mounts routes dynamically and includes full JSON logging, health, and heartbeat
 
 import express from "express";
 import process from "node:process";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,93 +12,74 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
-const NODE_ENV = process.env.NODE_ENV || "production";
-const VERSION = "2025.10.10-Routes-Fix";
-
-// ─────────────────────────────────────────────
-// LOGGING (consistent JSON output for Shiper)
-// ─────────────────────────────────────────────
-function log(message, meta) {
-  const line = { time: new Date().toISOString(), message };
-  if (meta) line.meta = meta;
-  console.log(JSON.stringify(line));
+// ─── Logging ───────────────────────────────────────────────────────────────
+function log(message, meta = null) {
+  const entry = {
+    time: new Date().toISOString(),
+    message,
+    ...(meta ? { meta } : {})
+  };
+  process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
-// ─────────────────────────────────────────────
-// HEALTH ENDPOINT (always logs when hit)
-// ─────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || "Production";
+const VERSION = "2025.10.10";
+
+// ─── Health Endpoint ───────────────────────────────────────────────────────
 app.get("/health", (req, res) => {
-  log("🩺 Health check hit");
+  log("🧩 Health check hit");
   res.status(200).json({
     status: "ok",
-    uptime: `${Math.round(process.uptime())}s`,
     version: VERSION,
-    environment: NODE_ENV,
+    uptime: `${Math.round(process.uptime())}s`,
+    environment: NODE_ENV
   });
 });
 
-// ─────────────────────────────────────────────
-// ROUTE MOUNTS (explicit imports for reliability)
-// ─────────────────────────────────────────────
-async function mountRoutes() {
-  const routesDir = path.resolve(__dirname, "./routes");
+// ─── Routes Import (Dynamic Safe Loader) ───────────────────────────────────
+async function loadRoutes() {
+  try {
+    const rewriteRoutes = await import("./routes/rewrite.js");
+    app.use("/api/rewrite", rewriteRoutes.default || rewriteRoutes);
 
-  const routeDefs = [
-    { file: "rewrite.js", mount: "/", name: "Rewrite API" },
-    { file: "podcast.js", mount: "/", name: "Podcast API" },
-    { file: "rss.js", mount: "/", name: "RSS API" },
-  ];
+    const podcastRoutes = await import("./routes/podcast.js");
+    app.use("/api/podcast", podcastRoutes.default || podcastRoutes);
 
-  for (const { file, mount, name } of routeDefs) {
-    const abs = path.join(routesDir, file);
-    try {
-      const mod = await import(pathToFileURL(abs).href);
-      if (mod.default) {
-        app.use(mount, mod.default);
-        log(`✅ Mounted route: ${name}`);
-      } else {
-        log(`⚠️ ${name} missing default export`);
-      }
-    } catch (err) {
-      log(`❌ Failed to load ${name}`, { error: err.message });
-    }
+    const rssRoutes = await import("./routes/rss.js");
+    app.use("/api/rss", rssRoutes.default || rssRoutes);
+
+    log("✅ Routes loaded successfully");
+  } catch (err) {
+    log("❌ Failed to load one or more route modules", { error: err.message });
   }
 }
 
-// ─────────────────────────────────────────────
-// FALLBACK 404 (always logs the URL)
-// ─────────────────────────────────────────────
+// ─── 404 Fallback ─────────────────────────────────────────────────────────
 app.use((req, res) => {
-  log("⚠️ 404 Not Found", { url: req.originalUrl });
-  res.status(404).json({ error: "Not found" });
+  log("⚠️ 404 Not Found", { path: req.originalUrl });
+  res.status(404).json({ error: "Endpoint not found" });
 });
 
-// ─────────────────────────────────────────────
-// START SERVER (waits until routes are mounted)
-// ─────────────────────────────────────────────
-await mountRoutes();
-
-app.listen(PORT, () => {
+// ─── Startup ───────────────────────────────────────────────────────────────
+app.listen(PORT, async () => {
   log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
+  await loadRoutes();
 });
 
-// ─────────────────────────────────────────────
-// HEARTBEAT (visible every 30 minutes)
-// ─────────────────────────────────────────────
+// ─── Heartbeat Log Every 5 Minutes ─────────────────────────────────────────
 setInterval(() => {
-  log(`⏱️ Heartbeat: uptime ${Math.round(process.uptime())}s`);
-}, 30 * 60 * 1000);
+  log(`⏱️ Heartbeat`, { uptime: `${Math.round(process.uptime())}s` });
+}, 5 * 60 * 1000);
 
-// ─────────────────────────────────────────────
-// CLEAN EXIT HANDLERS
-// ─────────────────────────────────────────────
+// ─── Graceful Shutdown ─────────────────────────────────────────────────────
 process.on("SIGTERM", () => {
-  log("🛑 SIGTERM received — shutting down gracefully");
+  log("🛑 SIGTERM – shutting down gracefully");
   process.exit(0);
 });
 
 process.on("SIGINT", () => {
-  log("🛑 SIGINT received — shutting down gracefully");
+  log("🛑 SIGINT – manual stop");
   process.exit(0);
 });
