@@ -1,106 +1,120 @@
-// utils/models.js
-import fetch from "node-fetch";
-import { log } from "./logger.js";
+/**
+ * Centralized model + routing config for the RSS Feed Creator.
+ * Mirrors the ai-config/ai-service logic used by the script system,
+ * with real OpenRouter setup and resilient fallback.
+ */
 
-export const MODELS = {
-  google:    { key: process.env.OPENROUTER_API_KEY_GOOGLE,    model: "google/gemini-2.0-flash-001" },
-  chatgpt:   { key: process.env.OPENROUTER_API_KEY_CHATGPT,   model: "openai/gpt-4o-mini" },
-  deepseek:  { key: process.env.OPENROUTER_API_KEY_DEEPSEEK,  model: "deepseek/deepseek-chat" },
-  anthropic: { key: process.env.OPENROUTER_API_KEY_ANTHROPIC, model: "anthropic/claude-sonnet-4.5" },
-  meta:      { key: process.env.OPENROUTER_API_KEY_META,      model: "meta-llama/llama-4-scout" }
+const aiConfig = {
+  models: {
+    google: {
+      name: "google/gemini-2.0-flash-001",
+      apiKey: process.env.OPENROUTER_API_KEY_GOOGLE,
+    },
+    chatgpt: {
+      name: "openai/gpt-4o-mini",
+      apiKey: process.env.OPENROUTER_API_KEY_CHATGPT,
+    },
+    deepseek: {
+      name: "deepseek/deepseek-chat",
+      apiKey: process.env.OPENROUTER_API_KEY_DEEPSEEK,
+    },
+    grok: {
+      name: "anthropic/claude-sonnet-4.5",
+      apiKey: process.env.OPENROUTER_API_KEY_GROK,
+    },
+    meta: {
+      name: "meta-llama/llama-4-scout",
+      apiKey: process.env.OPENROUTER_API_KEY_META,
+    },
+  },
+
+  routeModels: {
+    // Simplified route strategy — RSS Feed rewrites are concise, tone-stable
+    rewrite: ["google", "chatgpt", "deepseek", "grok", "meta"],
+  },
+
+  commonParams: {
+    temperature: 0.65,
+    timeout: 40000,
+  },
+
+  headers: {
+    "HTTP-Referer": process.env.APP_URL || "https://puzzledpancake.on.shiper.app",
+    "X-Title": "RSS Feed Rewriter",
+  },
 };
 
-export async function callOpenRouterModel(url, content, title = null) {
-  for (const [id, { key, model }] of Object.entries(MODELS)) {
-    if (!key) {
-      log.warn({ id }, "⚠️ Skipping model - no API key set");
+/**
+ * Logs to stdout with structured JSON for Shiper visibility.
+ */
+function log(level, message, meta = null) {
+  const entry = {
+    time: new Date().toISOString(),
+    level,
+    message,
+    ...(meta ? { meta } : {}),
+  };
+  process.stdout.write(JSON.stringify(entry) + "\n");
+}
+
+/**
+ * Generates a rewritten AI summary for an RSS feed item.
+ * Automatically retries across models if one fails.
+ *
+ * @param {string} prompt - The constructed rewrite prompt.
+ * @returns {Promise<string>} rewritten content
+ */
+export async function callOpenRouterModel(prompt) {
+  const modelSequence = aiConfig.routeModels.rewrite;
+  let lastError = null;
+
+  for (const modelKey of modelSequence) {
+    const modelConfig = aiConfig.models[modelKey];
+
+    if (!modelConfig?.name || !modelConfig?.apiKey) {
+      log("warn", `⚠️ Model '${modelKey}' missing or no API key.`);
       continue;
     }
 
     try {
-      log.info({ id, model }, "🔮 Calling OpenRouter model");
-
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${key}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content: "You are a sarcastic British Gen X podcaster rewriting RSS articles for a newsletter + podcast. Keep it sharp, cynical, conversational, but factual."
-            },
-            {
-              role: "user",
-              content: `Rewrite this article as a single continuous blurb (minimum 250 characters, maximum 600 characters). 
-- No formatting, no bullet points, no 'Podcast Intro', no headings.
-- Must be JSON-safe plain text. 
-- Tone: sarcastic British Gen X, conversational, punchy, witty.
-- Only return the rewritten article text.
-
-Title: ${title || "Untitled"}
-URL: ${url}
-Content: ${content.slice(0, 4000)}`
-            }
-          ]
-        })
+      const client = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: modelConfig.apiKey,
+        defaultHeaders: aiConfig.headers,
       });
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      }
+      log("info", `🤖 Trying model ${modelConfig.name} for RSS rewrite`);
 
-      const data = await res.json();
-      const rewritten = data.choices?.[0]?.message?.content;
+      const completion = await client.chat.completions.create({
+        model: modelConfig.name,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a precise and witty AI editor specializing in rewriting news headlines and summaries in a British Gen-X tone. Your goal: produce short, smart, punchy rewrites for an AI news RSS feed. Avoid hype, focus on clarity and insight.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: aiConfig.commonParams.temperature,
+      });
 
-      if (rewritten) {
-        log.info({ id, model }, "✅ Rewrite succeeded");
-        return rewritten;
-      } else {
-        log.warn({ id }, "⚠️ Model returned empty content, trying next");
-      }
+      const content = completion.choices?.[0]?.message?.content?.trim();
+      if (!content) throw new Error("Empty content returned");
+
+      log("info", `✅ Success with ${modelConfig.name}`);
+      return content;
     } catch (err) {
-      log.error({ id, err }, "❌ Model call failed, trying next");
+      log("error", `❌ Failed with ${modelConfig.name}`, { error: err.message });
+      lastError = err;
+      await new Promise(r => setTimeout(r, 1000)); // backoff
     }
   }
 
-  throw new Error("All OpenRouter models failed");
-}            {
-              role: "user",
-              content: `Rewrite this article as a single continuous blurb (minimum 250 characters, maximum 600 characters). 
-- No formatting, no bullet points, no 'Podcast Intro', no headings.
-- Must be JSON-safe plain text. 
-- Tone: sarcastic British Gen X, conversational, punchy, witty.
-- Only return the rewritten article text.
-
-Title: ${title || "Untitled"}
-URL: ${url}
-Content: ${content.slice(0, 4000)}`
-            }
-          ]
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      const rewritten = data.choices?.[0]?.message?.content;
-
-      if (rewritten) {
-        log.info({ id, model }, "✅ Rewrite succeeded");
-        return rewritten;
-      } else {
-        log.warn({ id }, "⚠️ Model returned empty content, trying next");
-      }
-    } catch (err) {
-      log.error({ id, err }, "❌ Model call failed, trying next");
-    }
-  }
-
-  throw new Error("All OpenRouter models failed");
+  log("error", "🚨 All OpenRouter models failed for RSS rewrite", {
+    lastError: lastError?.message,
+  });
+  throw lastError;
 }
