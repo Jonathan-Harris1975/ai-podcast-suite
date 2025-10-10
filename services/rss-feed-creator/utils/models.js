@@ -1,18 +1,37 @@
 /**
  * Centralized model + routing config for the RSS Feed Creator.
- * Mirrors the ai-config/ai-service logic used by the script system,
- * with real OpenRouter setup and resilient fallback.
+ * Mirrors ai-config/ai-service logic from the script system,
+ * with real OpenRouter setup, resilient fallback, and final summary reporting.
  */
 
+import OpenAI from "openai"; // ✅ Required import
+import process from "node:process";
+
+/**
+ * Structured JSON logger (for Shiper logs).
+ */
+function log(level, message, meta = null) {
+  const entry = {
+    time: new Date().toISOString(),
+    level,
+    message,
+    ...(meta ? { meta } : {}),
+  };
+  process.stdout.write(JSON.stringify(entry) + "\n");
+}
+
+/**
+ * Configuration — OpenRouter model chain.
+ */
 const aiConfig = {
   models: {
-    google: {
-      name: "google/gemini-2.0-flash-001",
-      apiKey: process.env.OPENROUTER_API_KEY_GOOGLE,
-    },
     chatgpt: {
       name: "openai/gpt-4o-mini",
       apiKey: process.env.OPENROUTER_API_KEY_CHATGPT,
+    },
+    google: {
+      name: "google/gemini-2.0-flash-001",
+      apiKey: process.env.OPENROUTER_API_KEY_GOOGLE,
     },
     deepseek: {
       name: "deepseek/deepseek-chat",
@@ -29,8 +48,7 @@ const aiConfig = {
   },
 
   routeModels: {
-    // Simplified route strategy — RSS Feed rewrites are concise, tone-stable
-    rewrite: ["google", "chatgpt", "deepseek", "grok", "meta"],
+    rewrite: ["chatgpt", "google", "deepseek", "grok", "meta"],
   },
 
   commonParams: {
@@ -45,76 +63,99 @@ const aiConfig = {
 };
 
 /**
- * Logs to stdout with structured JSON for Shiper visibility.
+ * Creates a client for a given model.
  */
-function log(level, message, meta = null) {
-  const entry = {
-    time: new Date().toISOString(),
-    level,
-    message,
-    ...(meta ? { meta } : {}),
-  };
-  process.stdout.write(JSON.stringify(entry) + "\n");
+function createClient(modelKey) {
+  const model = aiConfig.models[modelKey];
+  if (!model?.apiKey) throw new Error(`Missing API key for ${modelKey}`);
+
+  return new OpenAI({
+    apiKey: model.apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: aiConfig.headers,
+  });
 }
 
 /**
- * Generates a rewritten AI summary for an RSS feed item.
- * Automatically retries across models if one fails.
- *
- * @param {string} prompt - The constructed rewrite prompt.
- * @returns {Promise<string>} rewritten content
+ * Calls the OpenRouter API with automatic fallback and final summary.
+ * @param {string} prompt - Constructed RSS rewrite prompt.
+ * @returns {Promise<string>} - The rewritten text.
  */
 export async function callOpenRouterModel(prompt) {
-  const modelSequence = aiConfig.routeModels.rewrite;
+  const sequence = aiConfig.routeModels.rewrite;
+  const startTime = Date.now();
+  const results = [];
+
   let lastError = null;
+  let successModel = null;
+  let content = "";
 
-  for (const modelKey of modelSequence) {
-    const modelConfig = aiConfig.models[modelKey];
-
-    if (!modelConfig?.name || !modelConfig?.apiKey) {
-      log("warn", `⚠️ Model '${modelKey}' missing or no API key.`);
+  for (const key of sequence) {
+    const model = aiConfig.models[key];
+    if (!model?.name || !model?.apiKey) {
+      results.push({ model: key, status: "skipped", reason: "missing_key" });
+      log("warn", `⚠️ Model '${key}' missing config or API key.`);
       continue;
     }
 
+    const client = createClient(key);
+    log("info", `🤖 Trying model ${model.name}`);
+
     try {
-      const client = new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: modelConfig.apiKey,
-        defaultHeaders: aiConfig.headers,
-      });
-
-      log("info", `🤖 Trying model ${modelConfig.name} for RSS rewrite`);
-
       const completion = await client.chat.completions.create({
-        model: modelConfig.name,
+        model: model.name,
         messages: [
           {
             role: "system",
             content:
-              "You are a precise and witty AI editor specializing in rewriting news headlines and summaries in a British Gen-X tone. Your goal: produce short, smart, punchy rewrites for an AI news RSS feed. Avoid hype, focus on clarity and insight.",
+              "You are a concise, witty AI journalist rewriting AI news headlines and summaries in a dry British Gen-X tone. Avoid hype. Focus on clarity and insight.",
           },
-          {
-            role: "user",
-            content: prompt,
-          },
+          { role: "user", content: prompt },
         ],
         temperature: aiConfig.commonParams.temperature,
+        max_tokens: 300,
       });
 
-      const content = completion.choices?.[0]?.message?.content?.trim();
-      if (!content) throw new Error("Empty content returned");
+      content = completion?.choices?.[0]?.message?.content?.trim();
+      if (!content) throw new Error("Empty response");
 
-      log("info", `✅ Success with ${modelConfig.name}`);
-      return content;
+      results.push({ model: model.name, status: "success" });
+      successModel = model.name;
+      log("info", `✅ Success with ${model.name}`);
+      break;
     } catch (err) {
-      log("error", `❌ Failed with ${modelConfig.name}`, { error: err.message });
+      const reason =
+        err?.response?.statusText ||
+        err?.message ||
+        "unknown error";
+      results.push({ model: model.name, status: "failed", reason });
+      log("error", `❌ Failed with ${model.name}`, { error: reason });
       lastError = err;
-      await new Promise(r => setTimeout(r, 1000)); // backoff
+
+      // backoff 800ms
+      await new Promise((r) => setTimeout(r, 800));
     }
   }
 
-  log("error", "🚨 All OpenRouter models failed for RSS rewrite", {
-    lastError: lastError?.message,
-  });
-  throw lastError;
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+
+  // ── Summary Log ─────────────────────────────
+  const summary = {
+    ok: !!successModel,
+    successModel,
+    attempts: results.length,
+    duration_sec: parseFloat(elapsed),
+    results,
+  };
+
+  log("summary", "🧾 OpenRouter RSS Rewrite Summary", summary);
+
+  if (!successModel) {
+    log("error", "🚨 All OpenRouter models failed for RSS rewrite", {
+      lastError: lastError?.message,
+    });
+    throw lastError || new Error("All OpenRouter models failed");
+  }
+
+  return content;
 }
