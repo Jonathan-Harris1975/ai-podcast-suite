@@ -12,8 +12,8 @@ export const r2 = new S3Client({
 
 let _validated = false;
 /**
- * Lenient one-time configuration check.
- * Logs problems but NEVER throws (so Shiper keeps booting).
+ * One-time lenient configuration check.
+ * Logs problems but never throws so Shiper keeps booting.
  */
 export async function validateR2ConfigOnce() {
   if (_validated) return true;
@@ -26,13 +26,13 @@ export async function validateR2ConfigOnce() {
     return false;
   }
 
+  // Probe first available bucket if provided
   const buckets = [
     process.env.R2_BUCKET_RSS_FEEDS,
     process.env.R2_BUCKET_ARTWORK,
     process.env.R2_BUCKET_RAW_TEXT,
-    process.env.R2_BUCKET_PODCAST_CHUNKS,
-    process.env.R2_BUCKET_MERGED,
-    process.env.R2_BUCKET_META,
+    process.env.R2_BUCKET_PODCAST,
+    process.env.R2_BUCKET_META
   ].filter(Boolean);
 
   if (!buckets.length) {
