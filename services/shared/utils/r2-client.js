@@ -1,4 +1,4 @@
-// Centralized Cloudflare R2 client (lenient validator)
+// Cloudflare R2 client + one-shot validator (lenient)
 import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 
 export const r2 = new S3Client({
@@ -11,10 +11,6 @@ export const r2 = new S3Client({
 });
 
 let _validated = false;
-/**
- * One-time lenient configuration check.
- * Logs problems but never throws so Shiper keeps booting.
- */
 export async function validateR2ConfigOnce() {
   if (_validated) return true;
   _validated = true;
@@ -26,13 +22,12 @@ export async function validateR2ConfigOnce() {
     return false;
   }
 
-  // Probe first available bucket if provided
   const buckets = [
     process.env.R2_BUCKET_RSS_FEEDS,
     process.env.R2_BUCKET_ARTWORK,
-    process.env.R2_BUCKET_RAW_TEXT,
+    process.env.R2_BUCKET_META,
     process.env.R2_BUCKET_PODCAST,
-    process.env.R2_BUCKET_META
+    process.env.R2_BUCKET_RAW_TEXT
   ].filter(Boolean);
 
   if (!buckets.length) {
@@ -44,10 +39,9 @@ export async function validateR2ConfigOnce() {
   try {
     await r2.send(new HeadBucketCommand({ Bucket: bucket }));
     console.log("✅ R2 configuration OK");
-    return true;
-  } catch (err) {
-    const code = (err && err.$metadata && err.$metadata.httpStatusCode) || err?.name || "UnknownError";
+  } catch (e) {
+    const code = (e && e.$metadata && e.$metadata.httpStatusCode) || e?.name || "UnknownError";
     console.warn(`⚠️ R2 HeadBucket '${bucket}' failed: ${code}. Startup continues.`);
-    return false;
   }
+  return true;
 }
