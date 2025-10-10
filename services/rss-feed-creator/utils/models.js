@@ -4,7 +4,7 @@
  * with real OpenRouter setup, resilient fallback, and final summary reporting.
  */
 
-import OpenAI from "openai"; // ✅ Required import
+import OpenAI from "openai";
 import process from "node:process";
 
 /**
@@ -63,40 +63,39 @@ const aiConfig = {
 };
 
 /**
- * Creates a client for a given model.
- */
-const openai = new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: modelConfig.apiKey, // Use the specific key for this model
-        defaultHeaders: aiConfig.headers,
-
-/**
  * Calls the OpenRouter API with automatic fallback and final summary.
- * @param {string} prompt - Constructed RSS rewrite prompt.
+ * @param {string} title - The title of the article.
+ * @param {string} url - The URL of the article.
+ * @param {string} content - The content of the article.
  * @returns {Promise<string>} - The rewritten text.
  */
-export async function callOpenRouterModel(prompt) {
+export async function callOpenRouterModel(title, url, content) {
   const sequence = aiConfig.routeModels.rewrite;
   const startTime = Date.now();
   const results = [];
 
   let lastError = null;
   let successModel = null;
-  let content = "";
+  let rewrittenContent = "";
 
   for (const key of sequence) {
     const model = aiConfig.models[key];
     if (!model?.name || !model?.apiKey) {
-      results.push({ model: key, status: "skipped", reason: "missing_key" });
+      results.push({ model: key, status: "skipped", reason: "missing_config_or_key" });
       log("warn", `⚠️ Model '${key}' missing config or API key.`);
       continue;
     }
 
-    const client = createClient(key);
     log("info", `🤖 Trying model ${model.name}`);
 
     try {
-      const completion = await client.chat.completions.create({
+      const openai = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: model.apiKey,
+        defaultHeaders: aiConfig.headers,
+      });
+
+      const completion = await openai.chat.completions.create({
         model: model.name,
         messages: [
           {
@@ -104,28 +103,18 @@ export async function callOpenRouterModel(prompt) {
             content:
               "You are a concise, witty AI journalist rewriting AI news headlines and summaries in a dry British Gen-X tone. Avoid hype. Focus on clarity and insight.",
           },
-          { role: "user",
-              content: `Rewrite this article as a single continuous blurb (minimum 250 characters, maximum 600 characters). 
-- No formatting, no bullet points, no 'Podcast Intro', no headings.
-- Must be JSON-safe plain text. 
-- Tone: sarcastic British Gen X, conversational, punchy, witty.
-- Only return the rewritten article text.
-
-Title: ${title || "Untitled"}
-URL: ${url}
-Content: ${content.slice(0, 4000)}`
-            }
-          ]
-        })
-      });
-           
+          {
+            role: "user",
+            content: `Rewrite this article as a single continuous blurb (minimum 250 characters, maximum 600 characters). \n- No formatting, no bullet points, no 'Podcast Intro', no headings.\n- Must be JSON-safe plain text. \n- Tone: sarcastic British Gen X, conversational, punchy, witty.\n- Only return the rewritten article text.\n\nTitle: ${title || "Untitled"}\nURL: ${url}\nContent: ${content.slice(0, 4000)}`,
+          },
         ],
         temperature: aiConfig.commonParams.temperature,
+        timeout: aiConfig.commonParams.timeout,
         max_tokens: 300,
       });
 
-      content = completion?.choices?.[0]?.message?.content?.trim();
-      if (!content) throw new Error("Empty response");
+      rewrittenContent = completion?.choices?.[0]?.message?.content?.trim();
+      if (!rewrittenContent) throw new Error("Empty response");
 
       results.push({ model: model.name, status: "success" });
       successModel = model.name;
@@ -165,5 +154,6 @@ Content: ${content.slice(0, 4000)}`
     throw lastError || new Error("All OpenRouter models failed");
   }
 
-  return content;
+  return rewrittenContent;
 }
+
