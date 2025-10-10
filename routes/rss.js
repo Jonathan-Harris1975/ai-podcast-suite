@@ -1,7 +1,7 @@
 // routes/rss.js
 import express from "express";
 import { log } from "../utils/logger.js";
-import {getObject} from "../services/rss-feed-creator/utils/r2-client.js";
+import { getObject } from "../services/shared/utils/r2-client.js";
 
 const router = express.Router();
 
