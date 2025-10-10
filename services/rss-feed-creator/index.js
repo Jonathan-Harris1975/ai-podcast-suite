@@ -1,16 +1,13 @@
-// ---- RSS FEED CREATOR ----
-async function startRssFeedCreator() {
-  log("🧩 Attempting to initialize RSS Feed Creator...");
-  try {
-    const mod = await import("./services/rss-feed-creator/index.js");
-    const fn = mod.default || mod.startFeedCreator;
-    if (typeof fn === "function") {
-      await fn();
-      log("📰 RSS Feed Creator initialized successfully.");
-    } else {
-      log("⚠️ RSS Feed Creator loaded but no start function was exported.");
-    }
-  } catch (err) {
-    log("❌ RSS Feed Creator failed to initialize.", { error: err.message });
-  }
+// /services/rss-feed-creator/index.js
+import { generateFeed } from "./utils/feedGenerator.js"; // or whatever you use
+import { writeFileSync } from "fs";
+
+export async function startFeedCreator() {
+  console.log("🟢 RSS Feed Creator is now active.");
+  await generateFeed();
+  // Example static file write, optional:
+  writeFileSync("./public/rss.xml", "<rss>...</rss>");
 }
+
+// or, if simpler:
+export default startFeedCreator;
