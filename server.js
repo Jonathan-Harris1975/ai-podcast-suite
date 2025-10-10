@@ -3,6 +3,9 @@ import express from "express";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import process from "node:process";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,3 +89,4 @@ app.use((req, res) => {
 
 // ── Start server ────────────────────────
 app.listen(PORT, () => log(`🚀 Server running on port ${PORT} (${NODE_ENV})`));
+
