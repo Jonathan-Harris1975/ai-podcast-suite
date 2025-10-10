@@ -1,7 +1,0 @@
-2025-10-10T03:20:06.532305Z
-[OK] Created shim: services/env-checker.js
-[OK] Found existing: services/shared/utils/env-checker.js
-[OK] r2-client.js already exports validateR2ConfigOnce
-[OK] Rewrote bare imports in 0 files
-[OK] Normalized imports in server.js
-[OK] Updated package.json scripts
