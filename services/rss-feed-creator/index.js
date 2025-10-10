@@ -1,17 +1,16 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../shared/utils/r2-client.js";
-// services/rss-feed-creator/index.js
-import express from "express";
-import cors from "cors";
-import { log } from "../../utils/logger.js";
-import routes from "./routes/index.js";
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-app.use("/", routes);
-
-log.info("✅ rss-feed-creator env OK");
-log.info("🚀 RSS Feed Creator Service initialized");
-
-export default app;
+// ---- RSS FEED CREATOR ----
+async function startRssFeedCreator() {
+  log("🧩 Attempting to initialize RSS Feed Creator...");
+  try {
+    const mod = await import("./services/rss-feed-creator/index.js");
+    const fn = mod.default || mod.startFeedCreator;
+    if (typeof fn === "function") {
+      await fn();
+      log("📰 RSS Feed Creator initialized successfully.");
+    } else {
+      log("⚠️ RSS Feed Creator loaded but no start function was exported.");
+    }
+  } catch (err) {
+    log("❌ RSS Feed Creator failed to initialize.", { error: err.message });
+  }
+}
