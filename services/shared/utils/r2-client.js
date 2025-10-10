@@ -1,4 +1,4 @@
-// Cloudflare R2 client + one-shot validator (lenient)
+// Centralized Cloudflare R2 client (ESM, lenient validator)
 import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 
 export const r2 = new S3Client({
@@ -11,6 +11,7 @@ export const r2 = new S3Client({
 });
 
 let _validated = false;
+/** One-time lenient R2 check; logs, never throws. */
 export async function validateR2ConfigOnce() {
   if (_validated) return true;
   _validated = true;
