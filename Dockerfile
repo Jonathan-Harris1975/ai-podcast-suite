@@ -9,6 +9,11 @@ COPY . .
 # Install production deps
 RUN pnpm install --prod --no-optional
 
+# ---- Back-compat: provide a 'services' bare specifier alias ----
+# Some older bundles import 'services/...'; make sure it works by copying
+# the local ./services tree into /app/node_modules/services.
+RUN mkdir -p node_modules && rm -rf node_modules/services && cp -r services node_modules/services || true
+
 ENV NODE_ENV=production
 EXPOSE 3000
 

@@ -1,6 +1,6 @@
 {
   "name": "ai-podcast-suite",
-  "version": "2025.10.10-Stable",
+  "version": "2025.10.10-Ultra",
   "type": "module",
   "scripts": {
     "start": "node server.js",
