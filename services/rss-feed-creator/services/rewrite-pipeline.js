@@ -1,7 +1,7 @@
 // /services/rss-feed-creator/services/rewrite-pipeline.js
 // 🔁 AI Podcast Suite – RSS Feed Rewrite Pipeline (2025.10.10)
-// Uses local data files for bootstrap if missing in R2
-// Runs in 5:1 feed:url rotation pattern
+// Bootstrap from local /data/*.txt to R2 if missing
+// Rotation: 5 feeds + 1 URL per run
 
 import fs from "node:fs";
 import path from "node:path";
@@ -11,23 +11,23 @@ import { log } from "../../../utils/logger.js";
 import { getObject, putJson, putText } from "../../shared/utils/r2-client.js";
 import { callOpenRouterModel } from "../utils/models.js";
 import { rebuildRss } from "./build-rss.js";
-import { createShortLink } from "../utils/shortio.js";
+// import { createShortLink } from "../utils/shortio.js"; // (available if you decide to use)
 
 const parser = new Parser();
 
-// ── Keys in R2
-const ITEMS_KEY = "items.json";
-const FEEDS_KEY = "feeds.txt";
-const URLS_KEY = "urls.txt";
+// ── R2 Keys
+const ITEMS_KEY  = "items.json";
+const FEEDS_KEY  = "feeds.txt";
+const URLS_KEY   = "urls.txt";
 const CURSOR_KEY = "cursor.json";
 
 // ── Rotation config
-const FEEDS_PER_RUN = 5;
-const URLS_PER_RUN = 1;
-const MAX_ITEMS_PER_FEED = parseInt(process.env.MAX_ITEMS_PER_FEED || "3", 10);
+const FEEDS_PER_RUN       = 5;
+const URLS_PER_RUN        = 1;
+const MAX_ITEMS_PER_FEED  = parseInt(process.env.MAX_ITEMS_PER_FEED || "3", 10);
 
 // ────────────────────────────────────────────────
-// Helper utilities
+// Helpers
 // ────────────────────────────────────────────────
 function parseList(text) {
   if (!text) return [];
@@ -66,39 +66,51 @@ function wrapIndex(start, count, arr) {
 }
 
 // ────────────────────────────────────────────────
-// 🪄 Bootstrap logic
-// Reads local /data/*.txt and uploads to R2 if missing
+/** 🪄 Bootstrap: upload local data files to R2 if missing */
 // ────────────────────────────────────────────────
 async function ensureR2Bootstrap() {
-  const baseDir = path.resolve("services/rss-feed-creator/data");
+  const baseDir   = path.resolve("services/rss-feed-creator/data");
   const feedsPath = path.join(baseDir, "feeds.txt");
-  const urlsPath = path.join(baseDir, "urls.txt");
+  const urlsPath  = path.join(baseDir, "urls.txt");
 
-  const existingFeeds = await getObject(FEEDS_KEY);
-  const existingUrls = await getObject(URLS_KEY);
-  const existingCursor = await getObject(CURSOR_KEY);
+  let changed = false;
 
-  if (!existingFeeds && fs.existsSync(feedsPath)) {
-    const localFeeds = fs.readFileSync(feedsPath, "utf-8");
-    await putText(FEEDS_KEY, localFeeds);
-    log.info("🪄 Bootstrap: Uploaded local feeds.txt → R2");
+  try {
+    const [existingFeeds, existingUrls, existingCursor] = await Promise.all([
+      getObject(FEEDS_KEY),
+      getObject(URLS_KEY),
+      getObject(CURSOR_KEY)
+    ]);
+
+    if (!existingFeeds && fs.existsSync(feedsPath)) {
+      const localFeeds = fs.readFileSync(feedsPath, "utf-8");
+      await putText(FEEDS_KEY, localFeeds);
+      log.info("🪄 Bootstrap: Uploaded local feeds.txt → R2");
+      changed = true;
+    }
+
+    if (!existingUrls && fs.existsSync(urlsPath)) {
+      const localUrls = fs.readFileSync(urlsPath, "utf-8");
+      await putText(URLS_KEY, localUrls);
+      log.info("🪄 Bootstrap: Uploaded local urls.txt → R2");
+      changed = true;
+    }
+
+    if (!existingCursor) {
+      const cursor = { feedIndex: 0, urlIndex: 0 };
+      await putJson(CURSOR_KEY, cursor);
+      log.info("🪄 Bootstrap: cursor.json created in R2");
+      changed = true;
+    }
+  } catch (err) {
+    log.error("❌ Bootstrap to R2 failed", { error: err.message });
   }
 
-  if (!existingUrls && fs.existsSync(urlsPath)) {
-    const localUrls = fs.readFileSync(urlsPath, "utf-8");
-    await putText(URLS_KEY, localUrls);
-    log.info("🪄 Bootstrap: Uploaded local urls.txt → R2");
-  }
-
-  if (!existingCursor) {
-    const cursor = { feedIndex: 0, urlIndex: 0 };
-    await putJson(CURSOR_KEY, cursor);
-    log.info("🪄 Bootstrap: cursor.json created in R2");
-  }
+  return changed;
 }
 
 // ────────────────────────────────────────────────
-// 🚀 Main Rewrite Pipeline
+/** 🚀 Main Rewrite Pipeline */
 // ────────────────────────────────────────────────
 export async function runRewritePipeline() {
   log.info("🚀 Starting rewrite pipeline");
@@ -106,15 +118,15 @@ export async function runRewritePipeline() {
   try {
     await ensureR2Bootstrap();
 
-    // 1️⃣ Load feeds + URLs from R2
+    // 1️⃣ Load feeds + URLs + cursor from R2
     const [feedsText, urlsText, cursorRaw] = await Promise.all([
       getObject(FEEDS_KEY),
       getObject(URLS_KEY),
       getObject(CURSOR_KEY)
     ]);
 
-    const feeds = parseList(feedsText);
-    const urls = parseList(urlsText);
+    const feeds  = parseList(feedsText);
+    const urls   = parseList(urlsText);
     const cursor = cursorRaw ? JSON.parse(cursorRaw) : { feedIndex: 0, urlIndex: 0 };
 
     if (!feeds.length && !urls.length) {
@@ -124,27 +136,36 @@ export async function runRewritePipeline() {
 
     // 2️⃣ Select slices (5 feeds, 1 URL)
     const feedsSlice = wrapIndex(cursor.feedIndex, FEEDS_PER_RUN, feeds);
-    const urlsSlice = wrapIndex(cursor.urlIndex, URLS_PER_RUN, urls);
-    log.info(`📡 Selected ${feedsSlice.length} feeds + ${urlsSlice.length} URL(s)`);
+    const urlsSlice  = wrapIndex(cursor.urlIndex,  URLS_PER_RUN,  urls);
+    log.info("📡 Selection", { feeds: feedsSlice.length, urls: urlsSlice.length });
 
     // 3️⃣ Fetch and parse feeds
     const fetchedFeeds = [];
     for (const feedUrl of feedsSlice) {
       try {
-        const xml = await fetch(feedUrl).then(r => r.text());
+        const resp = await fetch(feedUrl);
+        const xml  = await resp.text();
         const parsed = await parser.parseString(xml);
         fetchedFeeds.push(parsed);
-        log.info(`✅ Parsed ${parsed.items?.length || 0} items from ${feedUrl}`);
+        log.info("✅ Parsed feed", { url: feedUrl, items: parsed.items?.length || 0 });
       } catch (err) {
-        log.error(`❌ Failed to fetch ${feedUrl}: ${err.message}`);
+        log.error("❌ Failed to fetch/parse feed", { url: feedUrl, error: err.message });
       }
     }
 
     // 4️⃣ Generate rewrites using OpenRouter model
     const rewrittenItems = [];
     for (const feed of fetchedFeeds) {
-      for (const item of (feed.items || []).slice(0, MAX_ITEMS_PER_FEED)) {
-        const prompt = `Rewrite this AI news headline and summary in a concise British Gen-X tone:\n\n${item.title}\n${item.contentSnippet}`;
+      const items = (feed.items || []).slice(0, MAX_ITEMS_PER_FEED);
+      for (const item of items) {
+        const title = item.title || "(untitled)";
+        const snippet = item.contentSnippet || item.content || "";
+        const prompt =
+          `Rewrite this AI news headline and summary in a concise British Gen-X tone.\n\n` +
+          `Title: ${title}\n` +
+          `Summary: ${snippet}\n\n` +
+          `— Keep it punchy. No hashtags or emojis.`;
+
         try {
           const modelResp = await callOpenRouterModel(prompt);
           const rewritten = clampRewrite(modelResp);
@@ -153,11 +174,11 @@ export async function runRewritePipeline() {
             title: rewritten,
             link: item.link,
             pubDate: item.pubDate || new Date().toUTCString(),
-            original: item.title
+            original: title
           });
-          log.info(`🧠 Rewrote: ${item.title.slice(0, 80)}...`);
+          log.info("🧠 Rewrote item", { title: title.slice(0, 80) });
         } catch (err) {
-          log.error(`❌ Rewrite failed for '${item.title}': ${err.message}`);
+          log.error("❌ Rewrite failed", { title: title.slice(0, 80), error: err.message });
         }
       }
     }
@@ -165,14 +186,14 @@ export async function runRewritePipeline() {
     // 5️⃣ Update cursor for rotation
     const nextCursor = {
       feedIndex: (cursor.feedIndex + FEEDS_PER_RUN) % (feeds.length || 1),
-      urlIndex: (cursor.urlIndex + URLS_PER_RUN) % (urls.length || 1)
+      urlIndex:  (cursor.urlIndex  + URLS_PER_RUN)  % (urls.length  || 1)
     };
     await putJson(CURSOR_KEY, nextCursor);
-    log.info(`🧭 Cursor updated: ${JSON.stringify(nextCursor)}`);
+    log.info("🧭 Cursor updated", nextCursor);
 
     // 6️⃣ Save rewritten items
     await putJson(ITEMS_KEY, rewrittenItems);
-    log.info(`💾 Saved ${rewrittenItems.length} rewritten items → R2 (${ITEMS_KEY})`);
+    log.info("💾 Saved rewritten items", { count: rewrittenItems.length, key: ITEMS_KEY });
 
     // 7️⃣ Build + upload RSS
     await rebuildRss(rewrittenItems);
@@ -182,8 +203,8 @@ export async function runRewritePipeline() {
     return { ok: true, count: rewrittenItems.length };
 
   } catch (err) {
-    log.error(`❌ runRewritePipeline failed: ${err.message}`);
-    log.error(err.stack);
+    log.error("❌ runRewritePipeline failed", { error: err.message });
+    if (err?.stack) log.error(err.stack);
     throw err;
   }
-          }
+    }
