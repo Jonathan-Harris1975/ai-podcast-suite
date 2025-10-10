@@ -1,4 +1,4 @@
-// server.js — AI Podcast Suite (2025.10.10-RouteLock)
+// server.js — AI Podcast Suite (2025.10.10-FinalRouteLock)
 import express from "express";
 import process from "node:process";
 import path from "node:path";
@@ -13,13 +13,13 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "production";
 
-// ── Logger ──────────────────────────────────────
+// ─────────── LOGGER ───────────
 function log(message, meta = null) {
   const entry = { time: new Date().toISOString(), message, ...(meta ? { meta } : {}) };
   process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
-// ── Health Check ────────────────────────────────
+// ─────────── HEALTH ───────────
 app.get("/health", (req, res) => {
   log("🩺 Health check hit");
   res.status(200).json({
@@ -29,46 +29,43 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ── Route Loader ────────────────────────────────
-async function loadRoutes() {
-  try {
-    // ✅ REWRITE ROUTE
-    const rewritePath = path.join(__dirname, "routes/rewrite.js");
-    const rewriteModule = await import(rewritePath);
-    const rewriteRouter = rewriteModule.default;
-    if (rewriteRouter && typeof rewriteRouter === "function") {
-      app.use("/api/rewrite", rewriteRouter);
-      log("✅ /api/rewrite router mounted");
-    } else {
-      log("⚠️ /api/rewrite invalid export");
+// ─────────── ROUTE MOUNTS ───────────
+import rewriteRouter from "./routes/rewrite.js";
+import podcastRouter from "./routes/podcast.js";
+
+// Mount them immediately, before 404
+app.use("/api/rewrite", rewriteRouter);
+log("✅ /api/rewrite router attached");
+
+app.use("/api/podcast", podcastRouter);
+log("✅ /api/podcast router attached");
+
+// Diagnostic route list (optional)
+app.get("/api/debug/routes", (req, res) => {
+  const routes = [];
+  app._router.stack.forEach(mw => {
+    if (mw.route) {
+      const methods = Object.keys(mw.route.methods).map(m => m.toUpperCase());
+      routes.push({ path: mw.route.path, methods });
+    } else if (mw.name === "router" && mw.handle.stack) {
+      mw.handle.stack.forEach(handler => {
+        if (handler.route) {
+          const methods = Object.keys(handler.route.methods).map(m => m.toUpperCase());
+          routes.push({ path: handler.route.path, methods, base: mw.regexp?.source });
+        }
+      });
     }
+  });
+  res.json({ routes });
+});
 
-    // ✅ PODCAST ROUTE
-    const podcastPath = path.join(__dirname, "routes/podcast.js");
-    const podcastModule = await import(podcastPath);
-    if (podcastModule?.default && typeof podcastModule.default === "function") {
-      app.use("/api/podcast", podcastModule.default);
-      log("✅ /api/podcast router mounted");
-    }
-
-    const registered = app._router.stack
-      .filter(r => r.route)
-      .map(r => `${Object.keys(r.route.methods)[0].toUpperCase()} ${r.route.path}`);
-    log("🧭 Registered routes", { registered });
-
-  } catch (err) {
-    log("❌ Route loading failed", { error: err.message });
-  }
-}
-
-// ── 404 Handler ────────────────────────────────
+// ─────────── 404 LAST ───────────
 app.use((req, res) => {
   log("⚠️ 404 Not Found", { path: req.originalUrl, method: req.method });
   res.status(404).json({ error: "Endpoint not found" });
 });
 
-// ── Start Server ───────────────────────────────
-(async () => {
-  await loadRoutes();
-  app.listen(PORT, () => log(`🚀 Server running on port ${PORT} (${NODE_ENV})`));
-})();
+// ─────────── STARTUP ───────────
+app.listen(PORT, () => {
+  log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
+});
