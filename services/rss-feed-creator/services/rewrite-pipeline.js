@@ -186,4 +186,4 @@ export async function runRewritePipeline() {
     log.error(err.stack);
     throw err;
   }
-            }
+          }
