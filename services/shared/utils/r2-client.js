@@ -1,104 +1,175 @@
 // /services/shared/utils/r2-client.js
-// ✅ Fixed & Validated Version (AI Podcast Suite 2025.10.10)
-// Unified Cloudflare R2 client for all modules
+// 🪣 Unified R2 Client for AI Podcast Suite (2025.10.10-Final)
+// Supports JSON, text, and binary uploads; auto-selects bucket from env vars
 
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
-import { log } from "../../../utils/logger.js";
+import { Buffer } from "node:buffer";
+import process from "node:process";
 
-// ---- R2 Connection Config ----
-const R2 = {
-  endpoint: process.env.R2_ENDPOINT,
-  region: process.env.R2_REGION || "auto",
-  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-};
+// ────────────────────────────────────────────────
+// ENV + CLIENT SETUP
+// ────────────────────────────────────────────────
+const R2_ENDPOINT = process.env.R2_ENDPOINT;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_REGION = process.env.R2_REGION || "auto";
+const DEFAULT_BUCKET = process.env.R2_BUCKET_RSS_FEEDS || process.env.R2_BUCKET_PODCAST;
 
-// ---- Buckets ----
-export const R2_BUCKETS = {
-  RAW_TEXT: process.env.R2_BUCKET_RAW_TEXT,
-  RAW: process.env.R2_BUCKET_RAW,
-  RSS: process.env.R2_BUCKET_RSS_FEEDS,
-  META: process.env.R2_META_BUCKET,
-  PODCAST: process.env.R2_BUCKET_PODCAST,
-  ARTWORK: process.env.R2_BUCKET_ARTWORK,
-};
+if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+  console.warn("⚠️ R2 client missing required environment vars");
+}
 
-// ---- Client ----
 export const s3 = new S3Client({
-  region: R2.region,
-  endpoint: R2.endpoint,
+  region: R2_REGION,
+  endpoint: R2_ENDPOINT,
   credentials: {
-    accessKeyId: R2.accessKeyId,
-    secretAccessKey: R2.secretAccessKey,
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
   },
+  forcePathStyle: true, // ✅ required for Cloudflare R2
 });
 
-// ---- Get Object ----
-export async function getObject(key, bucket = R2_BUCKETS.RSS) {
+// ────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────
+function streamToString(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on("data", chunk => chunks.push(Buffer.from(chunk)));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+  });
+}
+
+// Generic safe parser
+async function safeGetObject(bucket, key) {
   try {
-    const data = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-    return await streamToString(data.Body);
+    const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    return await streamToString(res.Body);
   } catch (err) {
-    log?.(`❌ getObject failed for ${key}: ${err.message}`);
+    if (err.name === "NoSuchKey" || err.message?.includes("NoSuchKey"))
+      return null;
+    console.error(`❌ getObject failed for ${key}:`, err.message);
     return null;
   }
 }
 
-// ---- Put JSON ----
-export async function putJson(key, obj, bucket = R2_BUCKETS.RSS) {
-  const Body = Buffer.from(JSON.stringify(obj, null, 2));
-  try {
-    await s3.send(new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body,
-      ContentType: "application/json",
-    }));
-    log?.(`✅ putJson ${key} → ${bucket}`);
-  } catch (err) {
-    log?.(`❌ putJson failed for ${key}: ${err.message}`);
-  }
+// ────────────────────────────────────────────────
+// CORE METHODS
+// ────────────────────────────────────────────────
+
+// ✅ Get text or JSON object
+export async function getObject(key, bucket = DEFAULT_BUCKET) {
+  return await safeGetObject(bucket, key);
 }
 
-// ---- Put Text ----
-export async function putText(key, text, bucket = R2_BUCKETS.RSS) {
-  const Body = Buffer.from(text, "utf-8");
+// ✅ List all object keys in a bucket
+export async function listKeys(bucket = DEFAULT_BUCKET, prefix = "") {
   try {
-    await s3.send(new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body,
-      ContentType: "text/plain",
-    }));
-    log?.(`✅ putText ${key} → ${bucket}`);
+    const res = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }));
+    return (res.Contents || []).map(o => o.Key);
   } catch (err) {
-    log?.(`❌ putText failed for ${key}: ${err.message}`);
-  }
-}
-
-// ---- List Keys ----
-export async function listKeys(bucket = R2_BUCKETS.RSS) {
-  try {
-    const data = await s3.send(new ListObjectsV2Command({ Bucket: bucket }));
-    return (data.Contents || []).map(obj => obj.Key);
-  } catch (err) {
-    log?.(`❌ listKeys failed for ${bucket}: ${err.message}`);
+    console.error(`❌ listKeys failed for ${bucket}:`, err.message);
     return [];
   }
 }
 
-// ---- Stream Helper ----
-async function streamToString(stream) {
-  if (stream instanceof Readable) {
-    const chunks = [];
-    for await (const chunk of stream) chunks.push(chunk);
-    return Buffer.concat(chunks).toString("utf-8");
+// ✅ Upload JSON
+export async function putJson(key, obj, bucket = DEFAULT_BUCKET) {
+  const body = JSON.stringify(obj, null, 2);
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: "application/json; charset=utf-8",
+        CacheControl: "no-cache",
+      })
+    );
+    console.log(`💾 JSON uploaded → ${bucket}/${key}`);
+  } catch (err) {
+    console.error(`❌ putJson failed for ${key}:`, err.message);
+    throw err;
   }
-  return "";
 }
 
-// ---- Validation ----
-export async function validateR2ConfigOnce() {
-  log?.("✅ R2 configuration OK");
+// ✅ Upload plain text
+export async function putText(key, text, bucket = DEFAULT_BUCKET) {
+  const body = Buffer.from(String(text), "utf-8");
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: "text/plain; charset=utf-8",
+        CacheControl: "no-cache",
+      })
+    );
+    console.log(`💾 Text uploaded → ${bucket}/${key}`);
+  } catch (err) {
+    console.error(`❌ putText failed for ${key}:`, err.message);
+    throw err;
   }
+}
+
+// ✅ Upload any binary buffer
+export async function uploadBuffer(bucket, key, buffer, contentType = "application/octet-stream") {
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+        CacheControl: "no-cache",
+      })
+    );
+    console.log(`💾 Buffer uploaded → ${bucket}/${key}`);
+  } catch (err) {
+    console.error(`❌ uploadBuffer failed for ${key}:`, err.message);
+    throw err;
+  }
+}
+
+// ✅ Get file as UTF-8 text
+export async function getObjectAsText(key, bucket = DEFAULT_BUCKET) {
+  const raw = await safeGetObject(bucket, key);
+  return raw ? raw.toString("utf-8") : null;
+}
+
+// ✅ Get JSON with fallback
+export async function getJson(key, fallback = {}, bucket = DEFAULT_BUCKET) {
+  const raw = await safeGetObject(bucket, key);
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+// ✅ Expose buckets map
+export const R2_BUCKETS = {
+  RSS: process.env.R2_BUCKET_RSS_FEEDS,
+  PODCAST: process.env.R2_BUCKET_PODCAST,
+  RAW: process.env.R2_BUCKET_RAW,
+  MERGED: process.env.R2_BUCKET_MERGED,
+  META: process.env.R2_META_BUCKET,
+  RAW_TEXT: process.env.R2_BUCKET_RAW_TEXT,
+};
+
+// ✅ Default export
+export default {
+  s3,
+  getObject,
+  getObjectAsText,
+  getJson,
+  listKeys,
+  putJson,
+  putText,
+  uploadBuffer,
+  R2_BUCKETS,
+};
