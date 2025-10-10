@@ -27,30 +27,33 @@ app.get("/health", (req, res) => {
 // ---- LOAD ROUTES ----
 async function loadRoutes() {
   try {
-    // ✅ Load rewrite route dynamically
     const rewriteModule = await import("./routes/rewrite.js");
-    if (rewriteModule?.default) {
-      app.use("/api/rewrite", rewriteModule.default);
-      log("✅ /api/rewrite mounted");
+    log("🧭 rewrite import type", {
+      defaultType: typeof rewriteModule.default,
+      keys: Object.keys(rewriteModule),
+    });
+
+    const router = rewriteModule.default;
+    if (router && typeof router === "function") {
+      app.use("/api/rewrite", router);
+      log("✅ /api/rewrite attached to Express");
+      // 🔥 verify right after attach
+      const routes = app._router.stack
+        .filter(r => r.route)
+        .map(r => r.route.path);
+      log("🧩 Registered paths", { routes });
     } else {
-      log("❌ rewrite.js missing default export");
+      log("❌ rewrite default export missing or not a router");
     }
 
-    // ✅ Load podcast route
     const podcastModule = await import("./routes/podcast.js");
-    if (podcastModule?.default) {
-      app.use("/api/podcast", podcastModule.default);
-      log("✅ /api/podcast mounted");
-    } else {
-      log("❌ podcast.js missing default export");
-    }
+    if (podcastModule?.default) app.use("/api/podcast", podcastModule.default);
 
     log("✅ Routes loaded successfully");
   } catch (err) {
-    log("❌ Failed loading routes", { error: err.message });
+    log("❌ Route loading failed", { error: err.message });
   }
 }
-
 // ---- 404 HANDLER (keep last) ----
 app.use((req, res) => {
   log("⚠️ 404 Not Found", { path: req.originalUrl });
