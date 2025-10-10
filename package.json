@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "node validate-imports.js",
+    "smoke": "node -e \"import('./services/shared/utils/r2-smoketest.js').then(m => m.runR2SmokeTest())\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.663.0",

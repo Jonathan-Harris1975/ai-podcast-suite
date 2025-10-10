@@ -1,10 +1,11 @@
+console.log("✅ Import paths validated and server starting...");
 /**
  * Root Server — Shiper-ready
  * Uses unified env check and R2 validator.
  */
 import express from "express";
 import { validateEnv } from "./services/env-checker.js";
-import {validateR2ConfigOnce} from "services/shared/utils/r2-client.js";
+import {validateR2ConfigOnce} from "./services/shared/utils/r2-client.js";
 
 const app = express();
 app.use(express.json());
