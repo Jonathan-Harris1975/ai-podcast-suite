@@ -1,6 +1,10 @@
 // /services/rss-feed-creator/services/rewrite-pipeline.js
-// 🔁 Integrated mono-repo version with R2 bootstrap + OpenRouter rewrite
+// 🔁 AI Podcast Suite – RSS Feed Rewrite Pipeline (2025.10.10)
+// Uses local data files for bootstrap if missing in R2
+// Runs in 5:1 feed:url rotation pattern
 
+import fs from "node:fs";
+import path from "node:path";
 import fetch from "node-fetch";
 import Parser from "rss-parser";
 import { log } from "../../../utils/logger.js";
@@ -11,19 +15,19 @@ import { createShortLink } from "../utils/shortio.js";
 
 const parser = new Parser();
 
-// ── R2 Keys
+// ── Keys in R2
 const ITEMS_KEY = "items.json";
 const FEEDS_KEY = "feeds.txt";
 const URLS_KEY = "urls.txt";
 const CURSOR_KEY = "cursor.json";
 
-// ── Config
+// ── Rotation config
 const FEEDS_PER_RUN = 5;
 const URLS_PER_RUN = 1;
 const MAX_ITEMS_PER_FEED = parseInt(process.env.MAX_ITEMS_PER_FEED || "3", 10);
 
 // ────────────────────────────────────────────────
-// Helpers
+// Helper utilities
 // ────────────────────────────────────────────────
 function parseList(text) {
   if (!text) return [];
@@ -62,42 +66,39 @@ function wrapIndex(start, count, arr) {
 }
 
 // ────────────────────────────────────────────────
-// Bootstrap — ensure feeds.txt, urls.txt, cursor.json exist
+// 🪄 Bootstrap logic
+// Reads local /data/*.txt and uploads to R2 if missing
 // ────────────────────────────────────────────────
 async function ensureR2Bootstrap() {
-  const defaults = {
-    feeds: [
-      "https://venturebeat.com/category/ai/feed/",
-      "https://syncedreview.com/feed/",
-      "https://the-decoder.com/feed/"
-    ],
-    urls: [
-      "https://blog.google/technology/ai/",
-      "https://towardsdatascience.com/"
-    ],
-    cursor: { feedIndex: 0, urlIndex: 0 }
-  };
+  const baseDir = path.resolve("services/rss-feed-creator/data");
+  const feedsPath = path.join(baseDir, "feeds.txt");
+  const urlsPath = path.join(baseDir, "urls.txt");
 
   const existingFeeds = await getObject(FEEDS_KEY);
   const existingUrls = await getObject(URLS_KEY);
   const existingCursor = await getObject(CURSOR_KEY);
 
-  if (!existingFeeds) {
-    await putText(FEEDS_KEY, defaults.feeds.join("\n"));
-    log.info("🪄 Bootstrap: feeds.txt created in R2");
+  if (!existingFeeds && fs.existsSync(feedsPath)) {
+    const localFeeds = fs.readFileSync(feedsPath, "utf-8");
+    await putText(FEEDS_KEY, localFeeds);
+    log.info("🪄 Bootstrap: Uploaded local feeds.txt → R2");
   }
-  if (!existingUrls) {
-    await putText(URLS_KEY, defaults.urls.join("\n"));
-    log.info("🪄 Bootstrap: urls.txt created in R2");
+
+  if (!existingUrls && fs.existsSync(urlsPath)) {
+    const localUrls = fs.readFileSync(urlsPath, "utf-8");
+    await putText(URLS_KEY, localUrls);
+    log.info("🪄 Bootstrap: Uploaded local urls.txt → R2");
   }
+
   if (!existingCursor) {
-    await putJson(CURSOR_KEY, defaults.cursor);
+    const cursor = { feedIndex: 0, urlIndex: 0 };
+    await putJson(CURSOR_KEY, cursor);
     log.info("🪄 Bootstrap: cursor.json created in R2");
   }
 }
 
 // ────────────────────────────────────────────────
-// Main Pipeline
+// 🚀 Main Rewrite Pipeline
 // ────────────────────────────────────────────────
 export async function runRewritePipeline() {
   log.info("🚀 Starting rewrite pipeline");
@@ -105,7 +106,7 @@ export async function runRewritePipeline() {
   try {
     await ensureR2Bootstrap();
 
-    // 1️⃣ Load data from R2
+    // 1️⃣ Load feeds + URLs from R2
     const [feedsText, urlsText, cursorRaw] = await Promise.all([
       getObject(FEEDS_KEY),
       getObject(URLS_KEY),
@@ -117,32 +118,29 @@ export async function runRewritePipeline() {
     const cursor = cursorRaw ? JSON.parse(cursorRaw) : { feedIndex: 0, urlIndex: 0 };
 
     if (!feeds.length && !urls.length) {
-      log.error("❌ No feeds.txt or urls.txt content found in R2 — cannot continue.");
-      throw new Error("feeds.txt and urls.txt are empty or missing in R2");
+      log.error("❌ No feeds.txt or urls.txt content found — cannot continue.");
+      throw new Error("feeds.txt and urls.txt are empty or missing");
     }
 
-    log.info(`[Stage 1] Parsed feeds:${feeds.length}, urls:${urls.length}`);
-
-    // 2️⃣ Select rotation slice
+    // 2️⃣ Select slices (5 feeds, 1 URL)
     const feedsSlice = wrapIndex(cursor.feedIndex, FEEDS_PER_RUN, feeds);
     const urlsSlice = wrapIndex(cursor.urlIndex, URLS_PER_RUN, urls);
-    log.info(`[Stage 2] Feeds slice: ${feedsSlice.length}, URLs slice: ${urlsSlice.length}`);
+    log.info(`📡 Selected ${feedsSlice.length} feeds + ${urlsSlice.length} URL(s)`);
 
-    // 3️⃣ Fetch and parse RSS feeds
+    // 3️⃣ Fetch and parse feeds
     const fetchedFeeds = [];
     for (const feedUrl of feedsSlice) {
       try {
-        log.info(`Fetching RSS feed: ${feedUrl}`);
         const xml = await fetch(feedUrl).then(r => r.text());
         const parsed = await parser.parseString(xml);
         fetchedFeeds.push(parsed);
-        log.info(`Fetched ${parsed.items?.length || 0} items from ${feedUrl}`);
+        log.info(`✅ Parsed ${parsed.items?.length || 0} items from ${feedUrl}`);
       } catch (err) {
         log.error(`❌ Failed to fetch ${feedUrl}: ${err.message}`);
       }
     }
 
-    // 4️⃣ Generate rewrites
+    // 4️⃣ Generate rewrites using OpenRouter model
     const rewrittenItems = [];
     for (const feed of fetchedFeeds) {
       for (const item of (feed.items || []).slice(0, MAX_ITEMS_PER_FEED)) {
@@ -157,32 +155,28 @@ export async function runRewritePipeline() {
             pubDate: item.pubDate || new Date().toUTCString(),
             original: item.title
           });
-          log.info(`🧩 Rewrote: ${item.title.slice(0, 60)}...`);
+          log.info(`🧠 Rewrote: ${item.title.slice(0, 80)}...`);
         } catch (err) {
           log.error(`❌ Rewrite failed for '${item.title}': ${err.message}`);
         }
       }
     }
 
-    // 5️⃣ Update cursor
+    // 5️⃣ Update cursor for rotation
     const nextCursor = {
       feedIndex: (cursor.feedIndex + FEEDS_PER_RUN) % (feeds.length || 1),
       urlIndex: (cursor.urlIndex + URLS_PER_RUN) % (urls.length || 1)
     };
     await putJson(CURSOR_KEY, nextCursor);
-    log.info(`[Stage 5] Cursor updated: ${JSON.stringify(nextCursor)}`);
+    log.info(`🧭 Cursor updated: ${JSON.stringify(nextCursor)}`);
 
-    // 6️⃣ Save rewritten data
+    // 6️⃣ Save rewritten items
     await putJson(ITEMS_KEY, rewrittenItems);
-    log.info(`[Stage 6] Saved ${rewrittenItems.length} rewritten items to ${ITEMS_KEY}`);
+    log.info(`💾 Saved ${rewrittenItems.length} rewritten items → R2 (${ITEMS_KEY})`);
 
-    // 7️⃣ Rebuild RSS and upload
-    try {
-      await rebuildRss(rewrittenItems);
-      log.info("✅ RSS successfully rebuilt and uploaded");
-    } catch (err) {
-      log.error(`⚠️ RSS rebuild failed: ${err.message}`);
-    }
+    // 7️⃣ Build + upload RSS
+    await rebuildRss(rewrittenItems);
+    log.info("📢 RSS feed rebuilt and uploaded successfully");
 
     log.info("🎯 Rewrite pipeline completed successfully");
     return { ok: true, count: rewrittenItems.length };
@@ -192,4 +186,4 @@ export async function runRewritePipeline() {
     log.error(err.stack);
     throw err;
   }
-      }
+            }
