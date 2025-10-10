@@ -65,16 +65,10 @@ const aiConfig = {
 /**
  * Creates a client for a given model.
  */
-function createClient(modelKey) {
-  const model = aiConfig.models[modelKey];
-  if (!model?.apiKey) throw new Error(`Missing API key for ${modelKey}`);
-
-  return new OpenAI({
-    apiKey: model.apiKey,
-    baseURL: "https://openrouter.ai/api/v1",
-    defaultHeaders: aiConfig.headers,
-  });
-}
+const openai = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: modelConfig.apiKey, // Use the specific key for this model
+        defaultHeaders: aiConfig.headers,
 
 /**
  * Calls the OpenRouter API with automatic fallback and final summary.
