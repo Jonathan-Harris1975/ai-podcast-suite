@@ -1,11 +1,10 @@
 {
   "name": "ai-podcast-suite",
-  "version": "2025.10.10-Final",
+  "version": "2025.10.10-Stable",
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "lint": "node --check server.js",
-    "postinstall": "echo '🔍 postinstall: syntax check' && node --check server.js || true"
+    "postinstall": "node --check server.js || true"
   },
   "dependencies": {
     "express": "^4.19.2",

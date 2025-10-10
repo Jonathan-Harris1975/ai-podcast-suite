@@ -4,34 +4,21 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .DS_Store
-*.swp
-*.swo
 
 .env
 .env.*
 !.env.example
 
-_build-log.txt
-ai-podcast-suite-*.zip
+*.zip
 coverage
 dist
 tmp
-temp
 .cache
 logs
 *.log
 
 .vscode
 .idea
-*.iml
-
 .git
 .gitignore
 .github
-tests
-__tests__
-test
-spec
-__mocks__
-
-docker-compose.yml
