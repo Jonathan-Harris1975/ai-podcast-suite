@@ -55,7 +55,39 @@ function wrapIndex(start, count, arr) {
 // Main pipeline
 export async function runRewritePipeline() {
   log.info("🚀 Starting rewrite pipeline");
+// ---- Bootstrap check: ensure essential R2 files exist ----
+const bootstrapDefaults = {
+  feeds: [
+    "https://venturebeat.com/category/ai/feed/",
+    "https://syncedreview.com/feed/",
+    "https://the-decoder.com/feed/"
+  ],
+  urls: [
+    "https://blog.google/technology/ai/",
+    "https://towardsdatascience.com/"
+  ],
+  cursor: { feedIndex: 0, urlIndex: 0 }
+};
 
+async function ensureR2Bootstrap() {
+  const existingFeeds = await getObject(FEEDS_KEY);
+  const existingUrls = await getObject(URLS_KEY);
+  const existingCursor = await getObject(CURSOR_KEY);
+
+  if (!existingFeeds) {
+    await putJson(FEEDS_KEY, bootstrapDefaults.feeds.join("\n"));
+    log.info("🪄 Bootstrap: feeds.txt created in R2");
+  }
+  if (!existingUrls) {
+    await putJson(URLS_KEY, bootstrapDefaults.urls.join("\n"));
+    log.info("🪄 Bootstrap: urls.txt created in R2");
+  }
+  if (!existingCursor) {
+    await putJson(CURSOR_KEY, bootstrapDefaults.cursor);
+    log.info("🪄 Bootstrap: cursor.json created in R2");
+  }
+}
+await ensureR2Bootstrap();
   try {
     // Load sources
     const [feedsText, urlsText, cursorRaw] = await Promise.all([
