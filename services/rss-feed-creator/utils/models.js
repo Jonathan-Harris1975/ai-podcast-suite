@@ -95,7 +95,8 @@ export async function callOpenRouterModel(title, url, content) {
         defaultHeaders: aiConfig.headers,
       });
 
-      const completion = await openai.chat.completions.create({
+      async function main() {
+  const completion = await openai.chat.completions.create({
         model: model.name,
         messages: [
           {
