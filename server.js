@@ -1,52 +1,46 @@
-// AI Podcast Suite Server – Shiper Optimized (RSS-Pro v2025.10.10)
+// AI Podcast Suite Server — Production Core v2025.10.10-Final
 import express from "express";
 import process from "node:process";
+import { runRewritePipeline } from "./services/rss-feed-creator/services/rewrite-pipeline.js";
 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const NODE_ENV = (process.env.NODE_ENV || "production").replace(/^\w/, c => c.toUpperCase());
+const NODE_ENV = process.env.NODE_ENV || "production";
+const VERSION = "2025.10.10-Final";
 
-const log = (message, meta) => {
-  const line = {
-    time: new Date().toISOString(),
-    message: `🧩 ${message}`,
-    ...(meta ? { meta } : {})
-  };
-  process.stdout.write(JSON.stringify(line) + "\n");
-};
+// ---- Logging (immediate stdout) ----
+function log(message, meta = {}) {
+  const entry = { time: new Date().toISOString(), message, ...(Object.keys(meta).length ? { meta } : {}) };
+  process.stdout.write(JSON.stringify(entry) + "\n");
+}
 
-// Health
-app.get("/health", (_req, res) => {
-  log("Health check hit");
-  res.json({ status: "ok", uptime: Math.round(process.uptime()) + "s", env: NODE_ENV });
+// ---- Health Endpoint ----
+app.get("/health", (req, res) => {
+  log("🧩 Health check hit");
+  res.status(200).json({
+    status: "ok",
+    version: VERSION,
+    environment: NODE_ENV,
+    uptime: Math.round(process.uptime()) + "s"
+  });
 });
 
-// Fire-and-forget rewrite trigger
-app.post("/api/rewrite", async (_req, res) => {
-  res.json({ ok: true, message: "Rewrite started 🔥" });
+// ---- Rewrite Trigger ----
+app.post("/api/rewrite", async (req, res) => {
+  log("🧩 rss:rewrite-pipeline-start");
+  res.status(202).json({ ok: true, message: "Rewrite started" });
+
   try {
-    log("rss:rewrite-pipeline-start");
-    const { runRewritePipeline } = await import("./services/rss-feed-creator/services/rewrite-pipeline.js");
     const result = await runRewritePipeline();
-    log("rss:rewrite-pipeline-complete", result);
-  } catch (err) {
-    log("rss:rewrite-pipeline-error", { error: err?.message });
+    log("🧩 rss:rewrite-pipeline-complete", { count: result?.count || 0 });
+  } catch (error) {
+    log("🧩 rss:rewrite-pipeline-error", { error: error.message });
   }
 });
 
-// Podcast stub
-app.post("/api/podcast", (req, res) => {
-  const script = req.body?.script || "";
-  const voice = req.body?.voice || "default";
-  log("podcast:endpoint", { chars: script.length, voice });
-  res.json({ success: true, message: "Podcast request received", chars: script.length, voice });
-});
-
+// ---- Startup ----
 app.listen(PORT, () => {
-  process.stdout.write(JSON.stringify({ time: new Date().toISOString(), message: `🚀 Server running on port ${PORT} (${NODE_ENV})` }) + "\n");
+  log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
 });
-
-// Heartbeat every 30 minutes
-setInterval(() => log(`heartbeat: ${Math.round(process.uptime())}s`), 30 * 60 * 1000);
