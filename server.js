@@ -1,4 +1,4 @@
-// AI Podcast Suite Server – Stable Shiper v2025.10.10-FIXED
+// AI Podcast Suite Server – Shiper Final v2025.10.10-RoutesFix
 import express from "express";
 import process from "node:process";
 
@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 const VERSION = "2025.10.10";
 const NODE_ENV = process.env.NODE_ENV || "production";
 
-// --- Logging Helper ---
+// ---- LOGGING ----
 function log(message, meta = null) {
   const entry = {
     time: new Date().toISOString(),
@@ -19,7 +19,7 @@ function log(message, meta = null) {
   process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
-// --- Health Check ---
+// ---- HEALTH ----
 app.get("/health", (req, res) => {
   log("🩺 Health check hit");
   res.status(200).json({
@@ -30,18 +30,20 @@ app.get("/health", (req, res) => {
   });
 });
 
-// --- Route Loader ---
+// ---- ROUTES ----
 async function loadRoutes() {
   try {
-    const rewriteRoutes = await import("./routes/rewrite.js");
-    if (rewriteRoutes.default) app.use("/api/rewrite", rewriteRoutes.default);
-    else log("⚠️ rewrite.js missing default export");
+    const rewriteModule = await import("./routes/rewrite.js");
+    const rewriteRouter = rewriteModule.default;
+    if (rewriteRouter) {
+      app.use("/api/rewrite", rewriteRouter);
+      log("✅ /api/rewrite route mounted");
+    } else {
+      log("❌ /api/rewrite missing default export");
+    }
 
-    const podcastRoutes = await import("./routes/podcast.js");
-    if (podcastRoutes.default) app.use("/api/podcast", podcastRoutes.default);
-
-    const rssRoutes = await import("./routes/rss.js");
-    if (rssRoutes.default) app.use("/api/rss", rssRoutes.default);
+    const podcastModule = await import("./routes/podcast.js");
+    if (podcastModule.default) app.use("/api/podcast", podcastModule.default);
 
     log("✅ Routes loaded successfully");
   } catch (err) {
@@ -49,19 +51,19 @@ async function loadRoutes() {
   }
 }
 
-// --- 404 Fallback ---
+// ---- 404 ----
 app.use((req, res) => {
   log("⚠️ 404 Not Found", { path: req.originalUrl });
   res.status(404).json({ error: "Endpoint not found" });
 });
 
-// --- Startup ---
+// ---- START ----
 app.listen(PORT, async () => {
   log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
   await loadRoutes();
 });
 
-// --- Heartbeat ---
+// ---- HEARTBEAT ----
 setInterval(() => {
   log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` });
 }, 5 * 60 * 1000);
