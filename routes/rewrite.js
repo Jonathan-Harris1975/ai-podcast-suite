@@ -4,10 +4,6 @@ import { runRewritePipeline } from "../services/rss-feed-creator/services/rewrit
 
 const router = express.Router();
 
-/**
- * POST /api/rewrite
- * Triggers the rewrite pipeline
- */
 router.post("/", async (req, res) => {
   console.log("🧩 rss:rewrite-pipeline-start");
   try {
@@ -17,7 +13,6 @@ router.post("/", async (req, res) => {
 
     res.status(202).json({ ok: true, message: "Rewrite pipeline started" });
   } catch (err) {
-    console.error("❌ rss:rewrite-pipeline-trigger-failed", err);
     res.status(500).json({ error: err.message });
   }
 });
