@@ -1,4 +1,4 @@
-// server.js — AI Podcast Suite (2025.10.10-RouteFix)
+// server.js — AI Podcast Suite (2025.10.10-RouteFix-Final)
 import express from "express";
 import process from "node:process";
 
@@ -27,6 +27,7 @@ app.get("/health", (req, res) => {
 // ---- LOAD ROUTES ----
 async function loadRoutes() {
   try {
+    // ✅ REWRITE ROUTE
     const rewriteModule = await import("./routes/rewrite.js");
     log("🧭 rewrite import type", {
       defaultType: typeof rewriteModule.default,
@@ -37,34 +38,47 @@ async function loadRoutes() {
     if (router && typeof router === "function") {
       app.use("/api/rewrite", router);
       log("✅ /api/rewrite attached to Express");
-      // 🔥 verify right after attach
-      const routes = app._router.stack
-        .filter(r => r.route)
-        .map(r => r.route.path);
-      log("🧩 Registered paths", { routes });
     } else {
       log("❌ rewrite default export missing or not a router");
     }
 
+    // ✅ PODCAST ROUTE
     const podcastModule = await import("./routes/podcast.js");
-    if (podcastModule?.default) app.use("/api/podcast", podcastModule.default);
+    if (podcastModule?.default) {
+      app.use("/api/podcast", podcastModule.default);
+      log("✅ /api/podcast attached to Express");
+    }
+
+    // ✅ ROUTE LIST DEBUG
+    const routes = app._router.stack
+      .filter(r => r.route)
+      .map(r => r.route.path);
+    log("🧩 Registered paths", { routes });
 
     log("✅ Routes loaded successfully");
   } catch (err) {
     log("❌ Route loading failed", { error: err.message });
   }
 }
-// ---- 404 HANDLER (keep last) ----
-app.use((req, res) => {
-  log("⚠️ 404 Not Found", { path: req.originalUrl });
-  res.status(404).json({ error: "Endpoint not found" });
-});
 
-// ---- START SERVER ----
-app.listen(PORT, async () => {
-  log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
+// ---- INIT ----
+(async () => {
   await loadRoutes();
-});
 
-// ---- HEARTBEAT ----
-setInterval(() => log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }), 5 * 60 * 1000);
+  // ---- 404 HANDLER (keep last) ----
+  app.use((req, res) => {
+    log("⚠️ 404 Not Found", { path: req.originalUrl });
+    res.status(404).json({ error: "Endpoint not found" });
+  });
+
+  // ---- START SERVER ----
+  app.listen(PORT, () => {
+    log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
+  });
+
+  // ---- HEARTBEAT ----
+  setInterval(
+    () => log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }),
+    5 * 60 * 1000
+  );
+})();
