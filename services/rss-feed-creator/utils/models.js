@@ -90,7 +90,7 @@ export async function callOpenRouterModel(title, url, content) {
 
     try {
       const openai = new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
+        base_url="https://openrouter.ai/api/v1",
         apiKey: model.apiKey,
         defaultHeaders: aiConfig.headers,
       });
