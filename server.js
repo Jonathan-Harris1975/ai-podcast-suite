@@ -1,5 +1,5 @@
 import express from "express";
-import { validateEnv } from "./services/shared/utils/env-checker.js";
+import { validateEnv } from "./services/env-checker.js";
 import { validateR2ConfigOnce } from "./services/shared/utils/r2-client.js";
 
 console.log("✅ Import paths validated and server starting...");

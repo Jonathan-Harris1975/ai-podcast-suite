@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "lint": "node --check server.js",
-    "postinstall": "echo '🔍 Postinstall check: verifying imports & env setup' && node --check server.js",
+    "postinstall": "echo '\ud83d\udd0d Postinstall check: verifying imports & env setup' && node --check server.js",
     "build:release": "bash ./build_release.sh"
   },
   "dependencies": {
