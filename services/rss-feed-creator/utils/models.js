@@ -110,7 +110,21 @@ export async function callOpenRouterModel(prompt) {
             content:
               "You are a concise, witty AI journalist rewriting AI news headlines and summaries in a dry British Gen-X tone. Avoid hype. Focus on clarity and insight.",
           },
-          { role: "user", content: prompt },
+          { role: "user",
+              content: `Rewrite this article as a single continuous blurb (minimum 250 characters, maximum 600 characters). 
+- No formatting, no bullet points, no 'Podcast Intro', no headings.
+- Must be JSON-safe plain text. 
+- Tone: sarcastic British Gen X, conversational, punchy, witty.
+- Only return the rewritten article text.
+
+Title: ${title || "Untitled"}
+URL: ${url}
+Content: ${content.slice(0, 4000)}`
+            }
+          ]
+        })
+      });
+           
         ],
         temperature: aiConfig.commonParams.temperature,
         max_tokens: 300,
