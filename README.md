@@ -22,14 +22,10 @@ pnpm start
 | R2_BUCKET_RSS_FEEDS | Bucket for RSS feeds |
 | OPENROUTER_API_KEY | API key for OpenRouter |
 
-## ⚙️ Automated Release Workflow
-Run the following command from the project root:
-```bash
-pnpm run build:release
-```
-This will validate imports & env, verify R2, generate checksums, produce a ship-ready zip, and (if in a git repo) commit + tag the release.
+### Endpoints
+- `GET /health` → `{ status: "ok", uptime }`
+- `GET /api/status` → service + version info
 
-### 🔒 Integrity
-**Archive Name:** ai-podcast-suite-shiper-ready.zip  
-**Build Version:** v2025.10.10-Final  
-**Archive SHA-256:** (to be filled after build)
+### Notes
+- Startup performs env + R2 checks **leniently** and never blocks boot.
+- Emoji logs enabled for human-readable Shiper output.

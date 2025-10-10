@@ -7,20 +7,15 @@ WORKDIR /app
 
 RUN npm install -g pnpm@9
 
-# Copy dependency manifests first for better caching
-COPY package.json pnpm-lock.yaml ./
-
-# Cache pnpm store between builds
-RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store     pnpm fetch
-
-# Install deps using cached store
-RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store     pnpm install --frozen-lockfile
-
-# Copy source
+# Copy entire context to guarantee /services files are present
 COPY . .
 
-# Build release artifacts if needed (kept as hook)
-RUN chmod +x ./build_release.sh || true
+# Cache + install
+RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store pnpm fetch
+RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store pnpm install --frozen-lockfile
+
+# Ensure no stale modules
+RUN rm -rf node_modules && pnpm install --frozen-lockfile
 
 # ========================================================
 # Stage 2 — Runtime
@@ -28,7 +23,6 @@ RUN chmod +x ./build_release.sh || true
 FROM node:22-alpine
 WORKDIR /app
 
-# Copy built app from builder stage
 COPY --from=builder /app .
 
 ENV NODE_ENV=production
