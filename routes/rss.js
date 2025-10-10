@@ -1,25 +1,37 @@
-// routes/rss.js
+// /routes/rss.js
 import express from "express";
-import { log } from "../utils/logger.js";
+import { rebuildRss } from "../services/rss-feed-creator/services/build-rss.js";
 import { getObject } from "../services/shared/utils/r2-client.js";
 
 const router = express.Router();
 
+/**
+ * GET /api/rss
+ * Returns the current RSS XML from R2 (if available)
+ */
 router.get("/", async (req, res) => {
   try {
-    log.debug("📡 GET /rss requested");
-    const rss = await getObject("data/rss.xml");
-    if (!rss) {
-      log.warn("RSS feed not found at data/rss.xml");
-      res.status(404).send("RSS feed not found");
-      return;
-    }
-    res.set("Content-Type", "application/rss+xml; charset=utf-8");
-    log.info(`📰 RSS feed served (length: ${typeof rss === "string" ? rss.length : (rss?.length || 0)} bytes)`);
-    res.send(rss);
+    const xml = await getObject("rss.xml");
+    res.set("Content-Type", "application/rss+xml");
+    res.send(xml || "<rss><channel><title>No RSS found</title></channel></rss>");
   } catch (err) {
-    log.error(`❌ Error fetching RSS: ${err?.message || err}`);
-    res.status(500).send("Internal server error");
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/rss/rebuild
+ * Manual trigger for RSS rebuild.
+ */
+router.post("/rebuild", async (req, res) => {
+  try {
+    const items = await getObject("items.json");
+    if (!items) throw new Error("No items found in R2");
+    const parsed = JSON.parse(items);
+    await rebuildRss(parsed);
+    res.json({ ok: true, message: "RSS rebuild completed" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
