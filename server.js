@@ -33,13 +33,18 @@ app.get("/health", (req, res) => {
 // ---- ROUTES ----
 async function loadRoutes() {
   try {
-    const rewriteModule = await import("./routes/rewrite.js");
+    const fileUrl = new URL("./routes/rewrite.js", import.meta.url);
+    log("🧩 Checking route file", { path: fileUrl.href });
+
+    const rewriteModule = await import(fileUrl.href);
+    log("🧩 rewriteModule keys", Object.keys(rewriteModule));
+
     const rewriteRouter = rewriteModule.default;
-    if (rewriteRouter) {
+    if (rewriteRouter && typeof rewriteRouter === "function") {
       app.use("/api/rewrite", rewriteRouter);
-      log("✅ /api/rewrite route mounted");
+      log("✅ /api/rewrite route mounted successfully");
     } else {
-      log("❌ /api/rewrite missing default export");
+      log("❌ /api/rewrite missing default export or not a function");
     }
 
     const podcastModule = await import("./routes/podcast.js");
