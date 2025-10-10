@@ -1,4 +1,4 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../shared/utils/r2-client.js";
 import pino from "pino";
 
 const isLocal = process.env.NODE_ENV !== "Production" && process.env.NODE_ENV !== "production";
