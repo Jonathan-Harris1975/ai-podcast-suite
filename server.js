@@ -1,12 +1,12 @@
-// AI Podcast Suite Server — Shiper Fix A (2025.10.10)
-// ✅ Reliable logging
-// ✅ Working /health
+// AI Podcast Suite Server — Shiper Fix B (2025.10.10)
+// ✅ Reliable /health logging
 // ✅ Working /api/rewrite (fire-and-forget)
 // ✅ 30-minute heartbeat
+// ✅ Fully ESM-compatible
 
 import express from "express";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,13 +17,12 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "production";
-const VERSION = "2025.10.10-FixA";
+const VERSION = "2025.10.10-FixB";
 
 // ---- JSON LOGGER ----
 function log(message, meta) {
   const entry = { time: new Date().toISOString(), message };
   if (meta) entry.meta = meta;
-  // console.log() flushes correctly on Shiper
   console.log(JSON.stringify(entry));
 }
 
@@ -44,9 +43,9 @@ app.post("/api/rewrite", async (req, res) => {
 
   (async () => {
     try {
-      // Always resolve path relative to this file
-      const target = path.join(__dirname, "services/rss-feed-creator/services/rewrite-pipeline.js");
-      const mod = await import(pathToFileUrl(target).href);
+      // Resolve the path to rewrite-pipeline.js relative to this file
+      const targetPath = path.join(__dirname, "services/rss-feed-creator/services/rewrite-pipeline.js");
+      const mod = await import(pathToFileURL(targetPath).href);
       if (typeof mod.runRewritePipeline === "function") {
         await mod.runRewritePipeline();
       } else {
@@ -71,7 +70,7 @@ setInterval(() => {
   log(`⏱️ Heartbeat: uptime ${Math.round(process.uptime())}s`);
 }, 30 * 60 * 1000);
 
-// ---- Clean exit ----
+// ---- CLEAN EXIT ----
 process.on("SIGTERM", () => {
   log("🛑 SIGTERM received, shutting down...");
   process.exit(0);
@@ -80,9 +79,3 @@ process.on("SIGINT", () => {
   log("🛑 SIGINT received, shutting down...");
   process.exit(0);
 });
-
-// helper to safely import local files in ESM context
-function pathToFileUrl(filePath) {
-  const { pathToFileURL } = await import("node:url");
-  return pathToFileURL(filePath);
-}
