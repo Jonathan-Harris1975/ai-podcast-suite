@@ -1,23 +1,23 @@
-// routes/rewrite.js
+// /routes/rewrite.js
 import express from "express";
-import { log } from "../utils/logger.js";
 import { runRewritePipeline } from "../services/rss-feed-creator/services/rewrite-pipeline.js";
 
 const router = express.Router();
 
 /**
- * Rewrite route — triggers RSS feed rewrite pipeline manually or via webhook.
+ * POST /api/rewrite
+ * Fire-and-forget rewrite trigger for RSS feed refresh.
  */
-router.post("/rewrite", async (req, res) => {
-  log.info("✅ POST /api/rewrite received");
-
+router.post("/", async (req, res) => {
   try {
-    await runRewritePipeline();
-    res.json({ ok: true, message: "Rewrite pipeline executed successfully." });
+    // trigger without blocking
+    runRewritePipeline()
+      .then(result => console.log("🧩 rss:rewrite-pipeline-complete", result))
+      .catch(err => console.error("🧩 rss:rewrite-pipeline-error", err));
+
+    res.json({ ok: true, message: "Rewrite pipeline triggered" });
   } catch (err) {
-    log.error(`❌ Rewrite route error: ${err.message}`);
-    console.error(err);
-    res.status(500).json({ ok: false, error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
