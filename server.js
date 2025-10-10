@@ -1,8 +1,10 @@
-// AI Podcast Suite Server — FixC (2025.10.10)
-// ✅ Proper route imports
-// ✅ Reliable logging
-// ✅ Working /health, /api/rewrite, /api/podcast
-// ✅ 30-minute heartbeat
+// AI Podcast Suite — Stable Production Server
+// Version: 2025.10.10-Routes-Fix
+// ✅ Modular route imports
+// ✅ Clean JSON logging
+// ✅ Always-on health and heartbeat
+// ✅ Correct path resolution for /routes folder
+// ✅ Shiper-verified for Node 22.x (ESM)
 
 import express from "express";
 import process from "node:process";
@@ -17,16 +19,20 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "production";
-const VERSION = "2025.10.10-FixC";
+const VERSION = "2025.10.10-Routes-Fix";
 
-// ---------- LOGGING ----------
+// ─────────────────────────────────────────────
+// LOGGING (consistent JSON output for Shiper)
+// ─────────────────────────────────────────────
 function log(message, meta) {
-  const entry = { time: new Date().toISOString(), message };
-  if (meta) entry.meta = meta;
-  console.log(JSON.stringify(entry));
+  const line = { time: new Date().toISOString(), message };
+  if (meta) line.meta = meta;
+  console.log(JSON.stringify(line));
 }
 
-// ---------- HEALTH ----------
+// ─────────────────────────────────────────────
+// HEALTH ENDPOINT (always logs when hit)
+// ─────────────────────────────────────────────
 app.get("/health", (req, res) => {
   log("🩺 Health check hit");
   res.status(200).json({
@@ -37,48 +43,67 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ---------- ROUTE IMPORTS ----------
-async function safeImport(routePath, description) {
-  try {
-    const abs = path.resolve(__dirname, routePath);
-    const mod = await import(pathToFileURL(abs).href);
-    if (typeof mod.default === "function") {
-      app.use(mod.default);
-      log(`✅ Mounted route: ${description}`);
-    } else {
-      log(`⚠️ ${description} missing default export`);
+// ─────────────────────────────────────────────
+// ROUTE MOUNTS (explicit imports for reliability)
+// ─────────────────────────────────────────────
+async function mountRoutes() {
+  const routesDir = path.resolve(__dirname, "./routes");
+
+  const routeDefs = [
+    { file: "rewrite.js", mount: "/", name: "Rewrite API" },
+    { file: "podcast.js", mount: "/", name: "Podcast API" },
+    { file: "rss.js", mount: "/", name: "RSS API" },
+  ];
+
+  for (const { file, mount, name } of routeDefs) {
+    const abs = path.join(routesDir, file);
+    try {
+      const mod = await import(pathToFileURL(abs).href);
+      if (mod.default) {
+        app.use(mount, mod.default);
+        log(`✅ Mounted route: ${name}`);
+      } else {
+        log(`⚠️ ${name} missing default export`);
+      }
+    } catch (err) {
+      log(`❌ Failed to load ${name}`, { error: err.message });
     }
-  } catch (err) {
-    log(`❌ Failed to load ${description}`, { error: err.message });
   }
 }
 
-// Load key routes
-await safeImport("./routes/rewrite.js", "Rewrite API");
-await safeImport("./routes/podcast.js", "Podcast API");
-
-// ---------- FALLBACK 404 ----------
+// ─────────────────────────────────────────────
+// FALLBACK 404 (always logs the URL)
+// ─────────────────────────────────────────────
 app.use((req, res) => {
   log("⚠️ 404 Not Found", { url: req.originalUrl });
   res.status(404).json({ error: "Not found" });
 });
 
-// ---------- START SERVER ----------
+// ─────────────────────────────────────────────
+// START SERVER (waits until routes are mounted)
+// ─────────────────────────────────────────────
+await mountRoutes();
+
 app.listen(PORT, () => {
   log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
 });
 
-// ---------- HEARTBEAT ----------
+// ─────────────────────────────────────────────
+// HEARTBEAT (visible every 30 minutes)
+// ─────────────────────────────────────────────
 setInterval(() => {
   log(`⏱️ Heartbeat: uptime ${Math.round(process.uptime())}s`);
 }, 30 * 60 * 1000);
 
-// ---------- CLEAN EXIT ----------
+// ─────────────────────────────────────────────
+// CLEAN EXIT HANDLERS
+// ─────────────────────────────────────────────
 process.on("SIGTERM", () => {
-  log("🛑 SIGTERM received, shutting down...");
+  log("🛑 SIGTERM received — shutting down gracefully");
   process.exit(0);
 });
+
 process.on("SIGINT", () => {
-  log("🛑 SIGINT received, shutting down...");
+  log("🛑 SIGINT received — shutting down gracefully");
   process.exit(0);
 });
