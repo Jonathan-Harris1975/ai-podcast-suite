@@ -1,7 +1,7 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../shared/utils/r2-client.js";
 // services/build-rss.js
 import { log } from "../../../utils/logger.js";
-import { putText } from "../utils/r2-client.js"; // ✅ fixed import
+import { putText } from "../../shared/utils/r2-client.js"; // ✅ fixed import
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
 const BUCKET = process.env.R2_BUCKET_RSS || "rss-feeds";

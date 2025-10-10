@@ -1,9 +1,9 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../shared/utils/r2-client.js";
 // /services/rss-feed-creator/services/rewrite-pipeline.js
 import fetch from "node-fetch";
 import Parser from "rss-parser";
 import { log } from "../../../utils/logger.js";
-import {getObject, putJson} from "../utils/r2-client.js";
+import {getObject, putJson} from "../../shared/utils/r2-client.js";
 import { callOpenRouterModel } from "../utils/models.js";
 import { rebuildRss } from "./build-rss.js";
 import { createShortLink } from "../utils/shortio.js";
