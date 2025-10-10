@@ -1,51 +1,67 @@
-// services/shared/utils/r2-client.js
+// Cloudflare R2 client (S3-compatible) — shared utils
 import { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
-const ENDPOINT = process.env.R2_S3_ENDPOINT || process.env.R2_ENDPOINT;
-const REGION = process.env.R2_REGION || "auto";
-const BUCKET_RSS = process.env.R2_BUCKET_RSS_FEEDS;
+const {
+  R2_ENDPOINT,
+  R2_REGION,
+  R2_ACCESS_KEY_ID,
+  R2_SECRET_ACCESS_KEY,
+  R2_BUCKET_RSS_FEEDS,
+} = process.env;
 
-export const R2_BUCKETS = {
-  RSS: BUCKET_RSS,
-};
+if (!R2_ENDPOINT) {
+  process.stdout.write(JSON.stringify({ time: new Date().toISOString(), message: "⚠️ R2_ENDPOINT is not set" }) + "\n");
+}
 
 export const s3 = new S3Client({
-  region: REGION,
-  endpoint: ENDPOINT,
+  region: R2_REGION || "auto",
+  endpoint: R2_ENDPOINT,
   forcePathStyle: true,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
+  credentials: (R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) ? {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  } : undefined,
 });
 
-export async function getObject(key) {
-  const out = await s3.send(new GetObjectCommand({ Bucket: BUCKET_RSS, Key: key }));
-  return await out.Body.transformToString();
+export const R2_BUCKETS = {
+  rss: R2_BUCKET_RSS_FEEDS,
+};
+
+async function streamToString(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks).toString("utf-8");
 }
-export async function getObjectAsText(key) {
-  return getObject(key);
+
+export async function getObject(key, bucket = R2_BUCKET_RSS_FEEDS) {
+  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
+  const out = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key })).catch(() => null);
+  if (!out || !out.Body) return null;
+  return await streamToString(out.Body);
 }
-export async function putJson(key, obj) {
-  const Body = JSON.stringify(obj, null, 2);
-  await s3.send(new PutObjectCommand({
-    Bucket: BUCKET_RSS,
-    Key: key,
-    Body,
-    ContentType: "application/json; charset=utf-8",
-    CacheControl: "no-cache",
-  }));
+
+export const getObjectAsText = getObject;
+
+export async function putJson(key, obj, bucket = R2_BUCKET_RSS_FEEDS) {
+  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
+  const Body = Buffer.from(JSON.stringify(obj, null, 2), "utf-8");
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body, ContentType: "application/json" }));
 }
-export async function uploadBuffer(key, buffer, contentType = "application/octet-stream") {
-  await s3.send(new PutObjectCommand({
-    Bucket: BUCKET_RSS,
-    Key: key,
-    Body: buffer,
-    ContentType: contentType,
-    CacheControl: "no-cache",
-  }));
+
+export async function putText(key, text, bucket = R2_BUCKET_RSS_FEEDS) {
+  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
+  const Body = Buffer.from(String(text), "utf-8");
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body, ContentType: "text/plain; charset=utf-8" }));
 }
-export async function listKeys(prefix = "") {
-  const r = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET_RSS, Prefix: prefix }));
-  return (r.Contents || []).map(o => o.Key);
+
+export async function uploadBuffer(key, buffer, contentType = "application/octet-stream", bucket = R2_BUCKET_RSS_FEEDS) {
+  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
+  const Body = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body, ContentType: contentType }));
+}
+
+export async function listKeys(prefix = "", bucket = R2_BUCKET_RSS_FEEDS) {
+  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
+  const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }));
+  return (resp.Contents || []).map(o => o.Key);
 }
