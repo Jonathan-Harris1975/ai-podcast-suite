@@ -1,6 +1,5 @@
 // /services/rss-feed-creator/services/rewrite-pipeline.js
-// Built-in fetch version (Node 18+/22+ on Shiper)
-// Removes node-fetch import completely.
+// Final 2025.10.10 — Shiper Optimized, uses Node's native fetch, safe JSON parsing, clean logs
 
 import Parser from "rss-parser";
 import { log } from "../../../utils/logger.js";
@@ -10,23 +9,23 @@ import { callOpenRouterModel } from "../utils/models.js";
 import { rebuildRss } from "./build-rss.js";
 import { createShortLink } from "../utils/shortio.js";
 
-// ✅ Use native fetch available in Node 18+
+// ✅ Use native fetch from Node 18+/22 (Shiper)
 const fetch = globalThis.fetch;
 
 const parser = new Parser();
 
-// R2 keys
+// ─── R2 Keys ─────────────────────────────────────────────
 const ITEMS_KEY = "items.json";
 const FEEDS_KEY = "feeds.txt";
 const URLS_KEY = "urls.txt";
 const CURSOR_KEY = "cursor.json";
 
-// Batch limits
+// ─── Batch Limits ────────────────────────────────────────
 const FEEDS_PER_RUN = 5;
 const URLS_PER_RUN = 1;
 const MAX_ITEMS_PER_FEED = parseInt(process.env.MAX_ITEMS_PER_FEED || "3", 10);
 
-// Helpers
+// ─── Helpers ─────────────────────────────────────────────
 function parseList(text) {
   if (!text) return [];
   return text
@@ -55,13 +54,6 @@ function guid() {
   return "RSS-" + Math.random().toString(36).slice(2, 8);
 }
 
-async function readJson(key, fallback) {
-  const raw = await getObject(key);
-  if (!raw) return fallback;
-  try { return JSON.parse(raw); }
-  catch { return fallback; }
-}
-
 function wrapIndex(start, count, arr) {
   if (arr.length === 0) return [];
   const out = [];
@@ -71,35 +63,45 @@ function wrapIndex(start, count, arr) {
   return out;
 }
 
-// Main pipeline
+function safeJsonParse(text, fallback) {
+  if (!text || typeof text !== "string") return fallback;
+  try {
+    return JSON.parse(text);
+  } catch {
+    log.warn("⚠️ JSON parse failed — returning fallback");
+    return fallback;
+  }
+}
+
+// ─── Main Pipeline ───────────────────────────────────────
 export async function runRewritePipeline() {
   log.info("🚀 Starting rewrite pipeline");
 
   try {
-    // 1️⃣ Load sources
+    // 1️⃣  Load source files from R2
     const [feedsText, urlsText, cursorRaw] = await Promise.all([
       getObject(FEEDS_KEY),
       getObject(URLS_KEY),
       getObject(CURSOR_KEY)
     ]);
 
-    log.debug(`[Stage 1] R2 objects loaded — feeds:${!!feedsText}, urls:${!!urlsText}, cursor:${!!cursorRaw}`);
-
     const feeds = parseList(feedsText);
     const urls = parseList(urlsText);
-    const cursor = cursorRaw ? JSON.parse(cursorRaw) : { feedIndex: 0, urlIndex: 0 };
+    const cursor = safeJsonParse(cursorRaw, { feedIndex: 0, urlIndex: 0 });
+
+    log.debug(`[Stage 1] Loaded feeds:${feeds.length}, urls:${urls.length}, cursor:${JSON.stringify(cursor)}`);
 
     if (!feeds.length && !urls.length) {
       log.error("❌ No feeds.txt or urls.txt content found in R2 — cannot continue.");
       throw new Error("feeds.txt and urls.txt are empty or missing in R2");
     }
 
-    // 2️⃣ Select rotation slice
+    // 2️⃣  Select current rotation slice
     const feedsSlice = wrapIndex(cursor.feedIndex, FEEDS_PER_RUN, feeds);
     const urlsSlice = wrapIndex(cursor.urlIndex, URLS_PER_RUN, urls);
     log.debug(`[Stage 2] Using feedsSlice:${JSON.stringify(feedsSlice)} urlsSlice:${JSON.stringify(urlsSlice)}`);
 
-    // 3️⃣ Fetch feed data
+    // 3️⃣  Fetch RSS feed data
     const fetchedFeeds = [];
     for (const feedUrl of feedsSlice) {
       try {
@@ -113,7 +115,7 @@ export async function runRewritePipeline() {
       }
     }
 
-    // 4️⃣ Generate rewrites
+    // 4️⃣  Generate rewrites with OpenRouter
     const rewrittenItems = [];
     for (const feed of fetchedFeeds) {
       for (const item of (feed.items || []).slice(0, MAX_ITEMS_PER_FEED)) {
@@ -130,27 +132,26 @@ export async function runRewritePipeline() {
           });
           log.debug(`Rewrote item: ${item.title.slice(0, 50)}...`);
         } catch (err) {
-          log.error(`❌ Model rewrite failed for item '${item.title}': ${err.message}`);
+          log.error(`❌ Model rewrite failed for '${item.title}': ${err.message}`);
         }
       }
     }
 
     log.info(`[Stage 4] Rewritten items generated: ${rewrittenItems.length}`);
 
-    // 5️⃣ Update cursor
+    // 5️⃣  Update cursor safely
     const nextCursor = {
       feedIndex: (cursor.feedIndex + FEEDS_PER_RUN) % (feeds.length || 1),
       urlIndex: (cursor.urlIndex + URLS_PER_RUN) % (urls.length || 1)
     };
-
     await putJson(CURSOR_KEY, nextCursor);
     log.debug(`[Stage 5] Cursor updated: ${JSON.stringify(nextCursor)}`);
 
-    // 6️⃣ Save rewritten data back to R2
+    // 6️⃣  Save rewritten data to R2
     await putJson(ITEMS_KEY, rewrittenItems);
     log.info(`[Stage 6] Saved ${rewrittenItems.length} rewritten items to ${ITEMS_KEY}`);
 
-    // 7️⃣ Rebuild RSS
+    // 7️⃣  Rebuild RSS feed
     try {
       await rebuildRss(rewrittenItems);
       log.info("✅ RSS successfully rebuilt and uploaded");
@@ -166,4 +167,4 @@ export async function runRewritePipeline() {
     log.error(err.stack);
     throw err;
   }
-}
+          }
