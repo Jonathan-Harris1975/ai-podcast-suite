@@ -1,67 +1,141 @@
-// Cloudflare R2 client (S3-compatible) — shared utils
-import { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+// ─────────────────────────────────────────────
+// ✅ Cloudflare R2 Client Utilities (Full Suite)
+// Self-contained — no r2-core.js dependency
+// ─────────────────────────────────────────────
 
-const {
-  R2_ENDPOINT,
-  R2_REGION,
-  R2_ACCESS_KEY_ID,
-  R2_SECRET_ACCESS_KEY,
-  R2_BUCKET_RSS_FEEDS,
-} = process.env;
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+  ListObjectsV2Command,
+} from "@aws-sdk/client-s3";
+import { log } from "../../../utils/logger.js";
 
-if (!R2_ENDPOINT) {
-  process.stdout.write(JSON.stringify({ time: new Date().toISOString(), message: "⚠️ R2_ENDPOINT is not set" }) + "\n");
-}
+// ─────────────────────────────────────────────
+//  Initialize R2 client
+// ─────────────────────────────────────────────
 
 export const s3 = new S3Client({
-  region: R2_REGION || "auto",
-  endpoint: R2_ENDPOINT,
-  forcePathStyle: true,
-  credentials: (R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) ? {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  } : undefined,
+  region: process.env.R2_REGION || "auto",
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || process.env.R2_KEY_ID,
+    secretAccessKey:
+      process.env.R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_KEY,
+  },
 });
 
+// ─────────────────────────────────────────────
+//  Bucket definitions (mirrors Shiper env list)
+// ─────────────────────────────────────────────
+
 export const R2_BUCKETS = {
-  rss: R2_BUCKET_RSS_FEEDS,
+  ART: process.env.R2_BUCKET_ART,
+  CHUNKS: process.env.R2_BUCKET_CHUNKS,
+  MERGED: process.env.R2_BUCKET_MERGED,
+  META: process.env.R2_BUCKET_META,
+  PODCAST: process.env.R2_BUCKET_PODCAST,
+  RAW: process.env.R2_BUCKET_RAW,
+  RAW_TEXT: process.env.R2_BUCKET_RAW_TEXT,
+  TRANSCRIPTS: process.env.R2_BUCKET_TRANSCRIPTS,
+  RSS_FEEDS: process.env.R2_BUCKET_RSS_FEEDS,
 };
 
-async function streamToString(stream) {
-  const chunks = [];
-  for await (const chunk of stream) chunks.push(chunk);
-  return Buffer.concat(chunks).toString("utf-8");
+// ─────────────────────────────────────────────
+//  Core helpers
+// ─────────────────────────────────────────────
+
+// Get object contents as text
+export async function getObjectAsText(key, bucket = R2_BUCKETS.RSS_FEEDS) {
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    return await res.Body.transformToString();
+  } catch (err) {
+    log?.error?.(`❌ getObjectAsText failed for ${key}: ${err.message}`);
+    return null;
+  }
 }
 
-export async function getObject(key, bucket = R2_BUCKET_RSS_FEEDS) {
-  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
-  const out = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key })).catch(() => null);
-  if (!out || !out.Body) return null;
-  return await streamToString(out.Body);
+// Get object raw
+export async function getObject(key, bucket = R2_BUCKETS.RSS_FEEDS) {
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    return await res.Body.transformToString();
+  } catch (err) {
+    log?.error?.(`❌ getObject failed for ${key}: ${err.message}`);
+    return null;
+  }
 }
 
-export const getObjectAsText = getObject;
-
-export async function putJson(key, obj, bucket = R2_BUCKET_RSS_FEEDS) {
-  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
-  const Body = Buffer.from(JSON.stringify(obj, null, 2), "utf-8");
-  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body, ContentType: "application/json" }));
+// Upload JSON
+export async function putJson(key, obj, bucket = R2_BUCKETS.RSS_FEEDS) {
+  try {
+    const Body = JSON.stringify(obj, null, 2);
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body,
+        ContentType: "application/json",
+      })
+    );
+    log?.info?.(`🪣 putJson uploaded ${key}`);
+  } catch (err) {
+    log?.error?.(`❌ putJson failed for ${key}: ${err.message}`);
+    throw err;
+  }
 }
 
-export async function putText(key, text, bucket = R2_BUCKET_RSS_FEEDS) {
-  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
-  const Body = Buffer.from(String(text), "utf-8");
-  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body, ContentType: "text/plain; charset=utf-8" }));
+// ✅ Upload plain text
+export async function putText(key, text, bucket = R2_BUCKETS.RSS_FEEDS) {
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: text,
+        ContentType: "text/plain; charset=utf-8",
+      })
+    );
+    log?.info?.(`🪣 putText uploaded ${key} (${text?.length || 0} chars)`);
+  } catch (err) {
+    log?.error?.(`❌ putText failed for ${key}: ${err.message}`);
+    throw err;
+  }
 }
 
-export async function uploadBuffer(key, buffer, contentType = "application/octet-stream", bucket = R2_BUCKET_RSS_FEEDS) {
-  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
-  const Body = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body, ContentType: contentType }));
+// Upload buffer
+export async function uploadBuffer(
+  key,
+  buffer,
+  bucket = R2_BUCKETS.RSS_FEEDS,
+  contentType = "application/octet-stream"
+) {
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+      })
+    );
+    log?.info?.(`🪣 uploadBuffer uploaded ${key} (${buffer.length} bytes)`);
+  } catch (err) {
+    log?.error?.(`❌ uploadBuffer failed for ${key}: ${err.message}`);
+    throw err;
+  }
 }
 
-export async function listKeys(prefix = "", bucket = R2_BUCKET_RSS_FEEDS) {
-  if (!bucket) throw new Error("R2 bucket (R2_BUCKET_RSS_FEEDS) not configured");
-  const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }));
-  return (resp.Contents || []).map(o => o.Key);
-}
+// List keys
+export async function listKeys(prefix = "", bucket = R2_BUCKETS.RSS_FEEDS) {
+  try {
+    const res = await s3.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix })
+    );
+    return (res.Contents || []).map((f) => f.Key);
+  } catch (err) {
+    log?.error?.(`❌ listKeys failed: ${err.message}`);
+    return [];
+  }
+                 }
