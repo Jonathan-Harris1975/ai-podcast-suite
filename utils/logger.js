@@ -1,19 +1,21 @@
-// /utils/logger.js
-// Simple JSON logger (used across AI Podcast Suite)
-import process from "node:process";
+import winston from "winston";
 
-export const log = {
-  info: (message, meta = {}) => out(message, meta),
-  debug: (message, meta = {}) => out(message, meta),
-  warn: (message, meta = {}) => out(message, meta),
-  error: (message, meta = {}) => out(message, meta)
-};
+const timestamp = winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" });
+const logFormat = winston.format.printf(({ level, message, timestamp }) => {
+  const colorizer = levelColors[level] || ((txt) => txt);
+  return `${(timestamp)} ${colorizer(level.toUpperCase())} ${message}`;
+});
 
-function out(message, meta = {}) {
-  const entry = {
-    time: new Date().toISOString(),
-    message,
-    ...(Object.keys(meta).length ? { meta } : {})
-  };
-  process.stdout.write(JSON.stringify(entry) + "\n");
-}
+export const log = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: winston.format.combine(timestamp, logFormat),
+  transports: [new winston.transports.Console({ handleExceptions: true })],
+  exitOnError: false,
+});
+
+export const info = (msg) => log.info(msg);
+export const warn = (msg) => log.warn(msg);
+export const error = (msg) => log.error(msg);
+export const debug = (msg) => log.debug(msg);
+
+log.info("🧠 Logger initialized and colorized output enabled.");
