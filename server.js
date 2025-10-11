@@ -39,7 +39,7 @@ app.get("/health", (req, res) => {
 app.get("/", (req, res) => {
   res.status(200).json({
     message: "🧠 AI Podcast Suite is live",
-    endpoints: ["/api/rewrite", "/api/podcast", "/health"],
+    endpoints: ["/api/rewrite", "/api/podcast", "/api/rss", "/health"],
   });
 });
 
@@ -49,13 +49,13 @@ app.get("/", (req, res) => {
 async function loadRoutes() {
   const rewritePath = "./routes/rewrite.js";
   const podcastPath = "./routes/podcast.js";
+  const rssPath = "./routes/rss.js";
 
-  log("🔍 Importing routes from", { rewritePath, podcastPath });
+  log("🔍 Importing routes from", { rewritePath, podcastPath, rssPath });
 
   try {
+    // Load rewrite routes
     const rewriteModule = await import(rewritePath);
-    const podcastModule = await import(podcastPath);
-
     if (rewriteModule?.default) {
       app.use("/api/rewrite", rewriteModule.default);
       log("✅ Mounted /api/rewrite");
@@ -63,6 +63,8 @@ async function loadRoutes() {
       log("⚠️ rewriteModule missing default export");
     }
 
+    // Load podcast routes
+    const podcastModule = await import(podcastPath);
     if (podcastModule?.default) {
       app.use("/api/podcast", podcastModule.default);
       log("✅ Mounted /api/podcast");
@@ -70,19 +72,20 @@ async function loadRoutes() {
       log("⚠️ podcastModule missing default export");
     }
 
+    // Load RSS routes
+    const rssModule = await import(rssPath);
+    if (rssModule?.default) {
+      app.use("/api/rss", rssModule.default);
+      log("✅ Mounted /api/rss");
+    } else {
+      log("⚠️ rssModule missing default export");
+    }
+
     log("✅ All routes mounted successfully");
   } catch (err) {
     log("❌ Route loading failed", { error: err.message });
+    // Don't throw here - let the server start but log the error
   }
-
-const rssPath = "./routes/rss.js";
-const rssModule = await import(rssPath);
-
-if (rssModule?.default) {
-  app.use("/api/rss", rssModule.default);
-  log("✅ Mounted /api/rss");
-} else {
-  log("⚠️ rssModule missing default export");
 }
 
 // ────────────────────────────────────────────────
@@ -96,16 +99,33 @@ app.use((req, res) => {
 // ────────────────────────────────────────────────
 // 🧠 Start Server
 // ────────────────────────────────────────────────
-app.listen(PORT, async () => {
-  log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
-  await loadRoutes();
+async function startServer() {
+  try {
+    // Load routes first
+    await loadRoutes();
+    
+    // Start server after routes are loaded
+    app.listen(PORT, () => {
+      log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
 
-  if (HEARTBEAT_ENABLE) {
-    setInterval(
-      () => log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }),
-      5 * 60 * 1000
-    );
-  } else {
-    log("💤 Heartbeat disabled for cost optimization");
+      if (HEARTBEAT_ENABLE) {
+        setInterval(
+          () => log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }),
+          5 * 60 * 1000
+        );
+        log("❤️ Heartbeat enabled");
+      } else {
+        log("💤 Heartbeat disabled for cost optimization");
+      }
+    });
+  } catch (error) {
+    log("💥 Failed to start server", { error: error.message });
+    process.exit(1);
   }
+}
+
+// Start the application
+startServer().catch(error => {
+  log("💥 Critical startup error", { error: error.message });
+  process.exit(1);
 });
