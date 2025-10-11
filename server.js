@@ -74,6 +74,15 @@ async function loadRoutes() {
   } catch (err) {
     log("❌ Route loading failed", { error: err.message });
   }
+
+const rssPath = "./routes/rss.js";
+const rssModule = await import(rssPath);
+
+if (rssModule?.default) {
+  app.use("/api/rss", rssModule.default);
+  log("✅ Mounted /api/rss");
+} else {
+  log("⚠️ rssModule missing default export");
 }
 
 // ────────────────────────────────────────────────
