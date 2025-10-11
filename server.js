@@ -1,4 +1,4 @@
-// /server.js — AI Podcast Suite (Final Stable 2025-10-11)
+// /server.js — AI Podcast Suite (Patched 2025-10-11)
 import express from "express";
 import process from "node:process";
 import fs from "node:fs";
@@ -87,10 +87,10 @@ async function loadRoutes() {
         log("⚠️ rewrite.js missing default export");
       }
     } catch (err) {
-      log("🚨 ./routes/rewrite.js failed", { error: err.message });
+      log("🚨 ./routes/rewrite.js failed to import", { error: err.message });
     }
   } else {
-    log("🚫 /api/rewrite skipped", { reason: "disabled via env" });
+    log("🚫 Rewrite route disabled via env var");
   }
 
   // ──────────── Podcast Route ────────────
@@ -100,14 +100,12 @@ async function loadRoutes() {
       if (mod?.default) {
         app.use("/api/podcast", mod.default);
         log("✅ Mounted /api/podcast");
-      } else {
-        log("⚠️ podcast.js missing default export");
       }
     } catch (err) {
-      log("🚨 ./routes/podcast.js failed", { error: err.message });
+      log("🚨 ./routes/podcast.js failed to import", { error: err.message });
     }
   } else {
-    log("🚫 /api/podcast skipped", { reason: "disabled via env" });
+    log("🚫 Podcast route disabled via env var");
   }
 
   // ──────────── RSS Route ────────────
@@ -117,54 +115,27 @@ async function loadRoutes() {
       if (mod?.default) {
         app.use("/api/rss", mod.default);
         log("✅ Mounted /api/rss");
-      } else {
-        log("⚠️ rss.js missing default export");
       }
     } catch (err) {
-      log("🚨 ./routes/rss.js failed", { error: err.message });
+      log("🚨 ./routes/rss.js failed to import", { error: err.message });
     }
   } else {
-    log("🚫 /api/rss skipped", { reason: "disabled via env" });
-  }
-
-  log("🔚 Route import pass complete");
-}
-
-// ────────────────────────────────────────────────
-// ⚠️ 404 Handler (Always last)
-// ────────────────────────────────────────────────
-app.use((req, res) => {
-  log("⚠️ 404 Not Found", { path: req.originalUrl });
-  res.status(404).json({ error: "Endpoint not found", path: req.originalUrl });
-});
-
-// ────────────────────────────────────────────────
-// 🧠 Start Server
-// ────────────────────────────────────────────────
-async function startServer() {
-  try {
-    await loadRoutes();
-
-    app.listen(PORT, () => {
-      log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
-      if (HEARTBEAT_ENABLE) {
-        setInterval(
-          () => log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }),
-          5 * 60 * 1000
-        );
-        log("❤️ Heartbeat enabled");
-      } else {
-        log("💤 Heartbeat disabled for cost optimization");
-      }
-    });
-  } catch (err) {
-    log("💥 Failed to start server", { error: err.message });
-    process.exit(1);
+    log("🚫 RSS route disabled via env var");
   }
 }
 
-// Boot up
-startServer().catch((err) => {
-  log("💥 Critical startup error", { error: err.message });
+// ────────────────────────────────────────────────
+// 🚀 Load Routes and Start Server (Patched by GPT)
+// ────────────────────────────────────────────────
+loadRoutes().then(() => {
+  app.use("*", (req, res) => {
+    res.status(404).json({ error: "Endpoint not found", path: req.originalUrl });
+  });
+
+  app.listen(PORT, () => {
+    log(`✅ Server running on port ${PORT}`, { NODE_ENV });
+  });
+}).catch((err) => {
+  log("❌ Failed to load routes", { error: err.message });
   process.exit(1);
 });
