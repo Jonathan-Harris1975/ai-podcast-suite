@@ -1,4 +1,4 @@
-// /server.js — AI Podcast Suite (2025.10.11 Final Stable)
+// /server.js — AI Podcast Suite (2025.10.11 Final Stable Fixed)
 import express from "express";
 import process from "node:process";
 
@@ -41,13 +41,8 @@ app.get("/", (req, res) => {
     message: "🧠 AI Podcast Suite is live",
     endpoints: ["/api/rewrite", "/api/podcast", "/api/rss", "/health"],
   });
+});
 
-try {
-  const rssRouter = await import("./routes/rss.js");
-  app.use("/api/rss", rssRouter.default);
-} catch (err) {
-  console.error("🚨 rss.js failed:", err);
-}
 // ────────────────────────────────────────────────
 // 🚀 Load Routes
 // ────────────────────────────────────────────────
@@ -59,7 +54,6 @@ async function loadRoutes() {
   log("🔍 Importing routes from", { rewritePath, podcastPath, rssPath });
 
   try {
-    // Load rewrite routes
     const rewriteModule = await import(rewritePath);
     if (rewriteModule?.default) {
       app.use("/api/rewrite", rewriteModule.default);
@@ -68,7 +62,6 @@ async function loadRoutes() {
       log("⚠️ rewriteModule missing default export");
     }
 
-    // Load podcast routes
     const podcastModule = await import(podcastPath);
     if (podcastModule?.default) {
       app.use("/api/podcast", podcastModule.default);
@@ -77,7 +70,6 @@ async function loadRoutes() {
       log("⚠️ podcastModule missing default export");
     }
 
-    // Load RSS routes
     const rssModule = await import(rssPath);
     if (rssModule?.default) {
       app.use("/api/rss", rssModule.default);
@@ -89,12 +81,11 @@ async function loadRoutes() {
     log("✅ All routes mounted successfully");
   } catch (err) {
     log("❌ Route loading failed", { error: err.message });
-    // Don't throw here - let the server start but log the error
   }
 }
 
 // ────────────────────────────────────────────────
-// ⚠️ 404 Handler (Keep last)
+// ⚠️ 404 Handler
 // ────────────────────────────────────────────────
 app.use((req, res) => {
   log("⚠️ 404 Not Found", { path: req.originalUrl });
@@ -106,10 +97,8 @@ app.use((req, res) => {
 // ────────────────────────────────────────────────
 async function startServer() {
   try {
-    // Load routes first
     await loadRoutes();
-    
-    // Start server after routes are loaded
+
     app.listen(PORT, () => {
       log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
 
@@ -129,7 +118,6 @@ async function startServer() {
   }
 }
 
-// Start the application
 startServer().catch(error => {
   log("💥 Critical startup error", { error: error.message });
   process.exit(1);
