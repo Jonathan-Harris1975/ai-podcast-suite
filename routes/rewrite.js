@@ -1,9 +1,10 @@
+// /routes/rewrite.js
 import express from "express";
 import startFeedCreator from "../services/rss-feed-creator/index.js";
 
 const router = express.Router();
 
-// GET /api/rewrite
+// Health check
 router.get("/", async (req, res) => {
   try {
     res.status(200).json({
@@ -16,7 +17,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /api/rewrite
+// Trigger rewrite pipeline
 router.post("/", async (req, res) => {
   try {
     const result = await startFeedCreator();
