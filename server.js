@@ -41,20 +41,6 @@ app.get("/", (req, res) => {
     message: "🧠 AI Podcast Suite is live",
     endpoints: ["/api/rewrite", "/api/podcast", "/api/rss", "/health"],
   });
-});
-try {
-  const rewriteRouter = await import("./routes/rewrite.js");
-  app.use("/api/rewrite", rewriteRouter.default);
-} catch (err) {
-  console.error("🚨 rewrite.js failed:", err);
-}
-
-try {
-  const podcastRouter = await import("./routes/podcast.js");
-  app.use("/api/podcast", podcastRouter.default);
-} catch (err) {
-  console.error("🚨 podcast.js failed:", err);
-}
 
 try {
   const rssRouter = await import("./routes/rss.js");
