@@ -1,4 +1,4 @@
-// /server.js — AI Podcast Suite (Debug-Toggle Edition 2025-10-11)
+// /server.js — AI Podcast Suite (Final Stable 2025-10-11)
 import express from "express";
 import process from "node:process";
 import fs from "node:fs";
@@ -11,19 +11,22 @@ const NODE_ENV = process.env.NODE_ENV || "production";
 const HEARTBEAT_ENABLE = (process.env.HEARTBEAT_ENABLE || "no").toLowerCase() === "yes";
 
 // ────────────────────────────────────────────────
-// 🪵 JSON Logger
+// 🧩 Environment Flags
+// ────────────────────────────────────────────────
+const DISABLE_REWRITE = (process.env.DISABLE_REWRITE || "no").toLowerCase() === "yes";
+const DISABLE_PODCAST = (process.env.DISABLE_PODCAST || "no").toLowerCase() === "yes";
+const DISABLE_RSS = (process.env.DISABLE_RSS || "no").toLowerCase() === "yes";
+
+// ────────────────────────────────────────────────
+// 🪵 JSON Logger (Render-friendly)
 // ────────────────────────────────────────────────
 function log(message, meta = null) {
-  const entry = {
-    time: new Date().toISOString(),
-    message,
-    ...(meta ? { meta } : {}),
-  };
+  const entry = { time: new Date().toISOString(), message, ...(meta ? { meta } : {}) };
   process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
 // ────────────────────────────────────────────────
-// 🧩 Preflight file existence check
+// 🧩 Preflight file check
 // ────────────────────────────────────────────────
 log("🧩 Preflight check", {
   rewriteExists: fs.existsSync("./routes/rewrite.js"),
@@ -40,6 +43,11 @@ app.get("/health", (req, res) => {
     status: "ok",
     uptime: `${Math.round(process.uptime())}s`,
     environment: NODE_ENV,
+    disabledRoutes: {
+      rewrite: DISABLE_REWRITE,
+      podcast: DISABLE_PODCAST,
+      rss: DISABLE_RSS,
+    },
   });
 });
 
@@ -54,78 +62,80 @@ app.get("/", (req, res) => {
 });
 
 // ────────────────────────────────────────────────
-// 🚀 Dynamic Route Loader with Debug Flags
+// 🚀 Dynamic Route Loader
 // ────────────────────────────────────────────────
 async function loadRoutes() {
   const rewritePath = "./routes/rewrite.js";
   const podcastPath = "./routes/podcast.js";
   const rssPath = "./routes/rss.js";
 
-  const disableRewrite = (process.env.DISABLE_REWRITE || "no").toLowerCase() === "yes";
-  const disablePodcast = (process.env.DISABLE_PODCAST || "no").toLowerCase() === "yes";
-  const disableRss = (process.env.DISABLE_RSS || "no").toLowerCase() === "yes";
-
   log("🔍 Importing routes from", { rewritePath, podcastPath, rssPath });
-  log("⚙️ Debug Flags", { disableRewrite, disablePodcast, disableRss });
+  log("⚙️ Debug Flags", {
+    disableRewrite: DISABLE_REWRITE,
+    disablePodcast: DISABLE_PODCAST,
+    disableRss: DISABLE_RSS,
+  });
 
-  try {
-    // ─── Rewrite Route ────────────────────────────
-    if (!disableRewrite && fs.existsSync(rewritePath)) {
-      try {
-        const rewriteModule = await import(rewritePath);
-        if (rewriteModule?.default) {
-          app.use("/api/rewrite", rewriteModule.default);
-          log("✅ Mounted /api/rewrite");
-        } else throw new Error("No default export found in rewrite.js");
-      } catch (err) {
-        log("🚨 ./routes/rewrite.js failed", { error: err.message });
+  // ──────────── Rewrite Route ────────────
+  if (!DISABLE_REWRITE) {
+    try {
+      const mod = await import(rewritePath);
+      if (mod?.default) {
+        app.use("/api/rewrite", mod.default);
+        log("✅ Mounted /api/rewrite");
+      } else {
+        log("⚠️ rewrite.js missing default export");
       }
-    } else {
-      log("🚫 /api/rewrite skipped", { reason: disableRewrite ? "disabled via env" : "file missing" });
+    } catch (err) {
+      log("🚨 ./routes/rewrite.js failed", { error: err.message });
     }
-
-    // ─── Podcast Route ────────────────────────────
-    if (!disablePodcast && fs.existsSync(podcastPath)) {
-      try {
-        const podcastModule = await import(podcastPath);
-        if (podcastModule?.default) {
-          app.use("/api/podcast", podcastModule.default);
-          log("✅ Mounted /api/podcast");
-        } else throw new Error("No default export found in podcast.js");
-      } catch (err) {
-        log("🚨 ./routes/podcast.js failed", { error: err.message });
-      }
-    } else {
-      log("🚫 /api/podcast skipped", { reason: disablePodcast ? "disabled via env" : "file missing" });
-    }
-
-    // ─── RSS Route ────────────────────────────────
-    if (!disableRss && fs.existsSync(rssPath)) {
-      try {
-        const rssModule = await import(rssPath);
-        if (rssModule?.default) {
-          app.use("/api/rss", rssModule.default);
-          log("✅ Mounted /api/rss");
-        } else throw new Error("No default export found in rss.js");
-      } catch (err) {
-        log("🚨 ./routes/rss.js failed", { error: err.message });
-      }
-    } else {
-      log("🚫 /api/rss skipped", { reason: disableRss ? "disabled via env" : "file missing" });
-    }
-
-    log("🔚 Route import pass complete");
-  } catch (error) {
-    log("💥 Route loading error", { error: error.message });
+  } else {
+    log("🚫 /api/rewrite skipped", { reason: "disabled via env" });
   }
+
+  // ──────────── Podcast Route ────────────
+  if (!DISABLE_PODCAST) {
+    try {
+      const mod = await import(podcastPath);
+      if (mod?.default) {
+        app.use("/api/podcast", mod.default);
+        log("✅ Mounted /api/podcast");
+      } else {
+        log("⚠️ podcast.js missing default export");
+      }
+    } catch (err) {
+      log("🚨 ./routes/podcast.js failed", { error: err.message });
+    }
+  } else {
+    log("🚫 /api/podcast skipped", { reason: "disabled via env" });
+  }
+
+  // ──────────── RSS Route ────────────
+  if (!DISABLE_RSS) {
+    try {
+      const mod = await import(rssPath);
+      if (mod?.default) {
+        app.use("/api/rss", mod.default);
+        log("✅ Mounted /api/rss");
+      } else {
+        log("⚠️ rss.js missing default export");
+      }
+    } catch (err) {
+      log("🚨 ./routes/rss.js failed", { error: err.message });
+    }
+  } else {
+    log("🚫 /api/rss skipped", { reason: "disabled via env" });
+  }
+
+  log("🔚 Route import pass complete");
 }
 
 // ────────────────────────────────────────────────
-// ⚠️ 404 Handler
+// ⚠️ 404 Handler (Always last)
 // ────────────────────────────────────────────────
 app.use((req, res) => {
   log("⚠️ 404 Not Found", { path: req.originalUrl });
-  res.status(404).json({ error: "Endpoint not found" });
+  res.status(404).json({ error: "Endpoint not found", path: req.originalUrl });
 });
 
 // ────────────────────────────────────────────────
@@ -137,7 +147,6 @@ async function startServer() {
 
     app.listen(PORT, () => {
       log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
-
       if (HEARTBEAT_ENABLE) {
         setInterval(
           () => log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }),
@@ -148,13 +157,14 @@ async function startServer() {
         log("💤 Heartbeat disabled for cost optimization");
       }
     });
-  } catch (error) {
-    log("💥 Failed to start server", { error: error.message });
+  } catch (err) {
+    log("💥 Failed to start server", { error: err.message });
     process.exit(1);
   }
 }
 
-startServer().catch(error => {
-  log("💥 Critical startup error", { error: error.message });
+// Boot up
+startServer().catch((err) => {
+  log("💥 Critical startup error", { error: err.message });
   process.exit(1);
 });
