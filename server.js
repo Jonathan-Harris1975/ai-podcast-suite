@@ -1,7 +1,7 @@
-log("🧩 Preflight check", { rewriteExists: fs.existsSync("./routes/rewrite.js"), podcastExists: fs.existsSync("./routes/podcast.js") });
-// /server.js — AI Podcast Suite (2025.10.11 Final Stable Fixed)
+// /server.js — AI Podcast Suite (Final Stable 2025-10-11)
 import express from "express";
 import process from "node:process";
+import fs from "node:fs"; // ✅ Added to support preflight check
 
 const app = express();
 app.use(express.json());
@@ -11,7 +11,7 @@ const NODE_ENV = process.env.NODE_ENV || "production";
 const HEARTBEAT_ENABLE = (process.env.HEARTBEAT_ENABLE || "no").toLowerCase() === "yes";
 
 // ────────────────────────────────────────────────
-// 🪵 Logger (Render-friendly structured JSON)
+// 🪵 JSON Logger
 // ────────────────────────────────────────────────
 function log(message, meta = null) {
   const entry = {
@@ -23,7 +23,16 @@ function log(message, meta = null) {
 }
 
 // ────────────────────────────────────────────────
-// 🩺 Health
+// 🧩 Preflight file existence check
+// ────────────────────────────────────────────────
+log("🧩 Preflight check", {
+  rewriteExists: fs.existsSync("./routes/rewrite.js"),
+  podcastExists: fs.existsSync("./routes/podcast.js"),
+  rssExists: fs.existsSync("./routes/rss.js"),
+});
+
+// ────────────────────────────────────────────────
+// 🩺 Health Endpoint
 // ────────────────────────────────────────────────
 app.get("/health", (req, res) => {
   log("🩺 Health check hit");
@@ -35,7 +44,7 @@ app.get("/health", (req, res) => {
 });
 
 // ────────────────────────────────────────────────
-// 🏠 Friendly Root Endpoint
+// 🏠 Root Endpoint
 // ────────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -45,7 +54,7 @@ app.get("/", (req, res) => {
 });
 
 // ────────────────────────────────────────────────
-// 🚀 Load Routes
+// 🚀 Dynamic Route Loader
 // ────────────────────────────────────────────────
 async function loadRoutes() {
   const rewritePath = "./routes/rewrite.js";
@@ -59,29 +68,23 @@ async function loadRoutes() {
     if (rewriteModule?.default) {
       app.use("/api/rewrite", rewriteModule.default);
       log("✅ Mounted /api/rewrite");
-    } else {
-      log("⚠️ rewriteModule missing default export");
     }
 
     const podcastModule = await import(podcastPath);
     if (podcastModule?.default) {
       app.use("/api/podcast", podcastModule.default);
       log("✅ Mounted /api/podcast");
-    } else {
-      log("⚠️ podcastModule missing default export");
     }
 
     const rssModule = await import(rssPath);
     if (rssModule?.default) {
       app.use("/api/rss", rssModule.default);
       log("✅ Mounted /api/rss");
-    } else {
-      log("⚠️ rssModule missing default export");
     }
 
     log("✅ All routes mounted successfully");
-  } catch (err) {
-    log("❌ Route loading failed", { error: err.message });
+  } catch (error) {
+    log("❌ Route loading failed", { error: error.message });
   }
 }
 
