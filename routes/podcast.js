@@ -1,11 +1,10 @@
-// /app/routes/podcast.js
+// /app/routes/podcast.js — Final Clean Version (2025.10.11)
 import express from "express";
 
 const router = express.Router();
 
 /**
- * GET /api/podcast
- * Placeholder route — future podcast generation logic will live here.
+ * GET /api/podcast → placeholder endpoint
  */
 router.get("/", (req, res) => {
   res.status(200).json({
