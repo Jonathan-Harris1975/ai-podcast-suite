@@ -102,7 +102,7 @@ export async function putJson(key, obj, bucket = DEFAULT_BUCKET) {
 }
 
 // ✅ Upload plain text
-async function putText(key, text, bucket = DEFAULT_BUCKET) {
+export async function putText(key, text, bucket = DEFAULT_BUCKET) {
     if (!s3) throw new Error("R2 client not initialized");
   const body = Buffer.from(String(text), "utf-8");
   try {
