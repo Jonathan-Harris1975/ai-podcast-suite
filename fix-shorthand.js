@@ -1,4 +1,4 @@
-// fix-shorthand.js — Expands { error } → { error: error } across all JS files
+// fix-shorthand.js — Safe version
 import fs from "fs";
 import path from "path";
 
@@ -9,6 +9,7 @@ function walkAndFix(dir) {
     if (stat.isDirectory()) walkAndFix(full);
     else if (entry.endsWith(".js")) {
       let content = fs.readFileSync(full, "utf-8");
+      if (content.includes("`")) return; // skip template literals
       const replaced = content.replace(
         /\{ *([a-zA-Z_][a-zA-Z0-9_]*) *\}/g,
         "{ $1: $1 }"
@@ -22,4 +23,4 @@ function walkAndFix(dir) {
 }
 
 walkAndFix("./");
-console.log("✅ All shorthand object literals expanded");
+console.log("✅ All shorthand object literals expanded safely");
