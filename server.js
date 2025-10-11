@@ -90,6 +90,10 @@ app.use((req, res) => {
   res.status(404).json({ error: "Endpoint not found" });
 });
 
-// ── Start server ────────────────────────
-app.listen(PORT, () => log(`🚀 Server running on port ${PORT} (${NODE_ENV})`));
+// ── Start server ────────────────────
+(async () => {
+  await loadRoutes();
+  app.listen(PORT, () => log(`🖥️ Server running on port ${PORT} (${NODE_ENV})`));
+  setInterval(() => log("⏳ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }), 30 * 60 * 1000);
+})();
 
