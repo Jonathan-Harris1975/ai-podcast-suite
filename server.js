@@ -2,7 +2,15 @@
 import express from "express";
 import process from "node:process";
 import fs from "node:fs";
+import fs from "node:fs";
 
+try {
+  const content = fs.readFileSync("./routes/rewrite.js", "utf8");
+  console.log("=== REWRITE FILE SIZE:", content.length, "bytes ===");
+  console.log(content.slice(-100)); // last 100 chars for sanity
+} catch (err) {
+  console.error("Could not read rewrite.js:", err.message);
+}
 const app = express();
 app.use(express.json());
 
