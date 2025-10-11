@@ -1,14 +1,6 @@
-// server.js — AI Podcast Suite (2025.10.10-AbsoluteRouteFix)
+// server.js — AI Podcast Suite (Render-Stable 2025.10.11)
 import express from "express";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import path from "node:path";
 import process from "node:process";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
@@ -16,84 +8,80 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "production";
 
-// ── Logger ─────────────────────────────
+// ────────────────────────────────────────────────
+// LOGGER
+// ────────────────────────────────────────────────
 function log(message, meta = null) {
   const entry = { time: new Date().toISOString(), message, ...(meta ? { meta } : {}) };
   process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
-// ── Health ─────────────────────────────
+// ────────────────────────────────────────────────
+// HEALTH
+// ────────────────────────────────────────────────
 app.get("/health", (req, res) => {
   log("🩺 Health check hit");
-  res.json({ ok: true, uptime: `${Math.round(process.uptime())}s`, env: NODE_ENV });
+  res.status(200).json({
+    status: "ok",
+    uptime: `${Math.round(process.uptime())}s`,
+    environment: NODE_ENV,
+  });
 });
 
-// ── Load routes using ABSOLUTE file URLs ───────────
-try {
-  const routesDir = path.resolve(__dirname, "routes");
-  const rewritePath = path.join(routesDir, "rewrite.js");
-  const podcastPath = path.join(routesDir, "podcast.js");
+// ────────────────────────────────────────────────
+// DYNAMIC ROUTE LOADER
+// ────────────────────────────────────────────────
+async function loadRoutes() {
+  try {
+    const rewritePath = new URL("./routes/rewrite.js", import.meta.url);
+    const podcastPath = new URL("./routes/podcast.js", import.meta.url);
+    log("🔍 Importing routes from", { rewritePath: rewritePath.pathname, podcastPath: podcastPath.pathname });
 
-  log("🔍 Importing routes from", { rewritePath: rewritePath, podcastPath: podcastPath });
+    // Load rewrite route
+    const rewriteModule = await import(rewritePath);
+    const rewriteRouter = rewriteModule?.default;
+    if (rewriteRouter && typeof rewriteRouter === "function") {
+      app.use("/api/rewrite", rewriteRouter);
+      log("✅ Mounted /api/rewrite");
+    } else {
+      log("⚠️ Rewrite route missing default export or invalid type");
+    }
 
-  const rewriteModulePath = pathToFileURL(rewritePath).href;
-  const podcastModulePath = pathToFileURL(podcastPath).href;
+    // Load podcast route
+    const podcastModule = await import(podcastPath);
+    const podcastRouter = podcastModule?.default;
+    if (podcastRouter && typeof podcastRouter === "function") {
+      app.use("/api/podcast", podcastRouter);
+      log("✅ Mounted /api/podcast");
+    } else {
+      log("⚠️ Podcast route missing default export or invalid type");
+    }
 
-  // const rewriteModule = await import(rewriteModulePath);
-  const podcastModule = await import(podcastModulePath);
-
-  // if (rewriteModule?.default && typeof rewriteModule.default === "function") {
-    app.use("/api/rewrite", rewriteModule.default);
-    log("✅ Mounted /api/rewrite");
-  } else {
-    log("❌ rewrite.js did not export a valid router", { rewriteModuleKeys: Object.keys(rewriteModule) });
+    log("✅ All routes attached successfully");
+  } catch (err) {
+    log("❌ Route loading failed", { error: err.message });
   }
-
-  if (podcastModule?.default && typeof podcastModule.default === "function") {
-    app.use("/api/podcast", podcastModule.default);
-    log("✅ Mounted /api/podcast");
-  } else {
-    log("⚠️ podcast.js invalid export");
-  }
-
-  // 🧩 Debug route
-  app.get("/api/debug/routes", (req, res) => {
-    const list = [];
-    app._router.stack.forEach(mw => {
-      if (mw.route) {
-        const methods = Object.keys(mw.route.methods).map(m => m.toUpperCase());
-        list.push({ path: mw.route.path, methods });
-      } else if (mw.name === "router" && mw.handle.stack) {
-        mw.handle.stack.forEach(h => {
-          if (h.route) {
-            const methods = Object.keys(h.route.methods).map(m => m.toUpperCase());
-            list.push({
-              base: mw.regexp?.source,
-              path: h.route.path,
-              methods,
-            });
-          }
-        });
-      }
-    });
-    res.json({ routes: list });
-  });
-
-  log("✅ All routes attached successfully");
-} catch (err) {
-  log("❌ Route load failed", { errorMessage: err.message });
 }
 
-// ── 404 handler (must be last) ─────────────
+// ────────────────────────────────────────────────
+// 404 HANDLER
+// ────────────────────────────────────────────────
 app.use((req, res) => {
-  log("⚠️ 404 Not Found", { originalPath: req.originalUrl, requestMethod: req.method });
+  log("⚠️ 404 Not Found", { path: req.originalUrl });
   res.status(404).json({ error: "Endpoint not found" });
 });
 
-// ── Start server ────────────────────
-(async () => {
+// ────────────────────────────────────────────────
+// START SERVER
+// ────────────────────────────────────────────────
+app.listen(PORT, async () => {
+  log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
+  await loadRoutes();
+});
 
-  app.listen(PORT, () => log(`🖥️ Server running on port ${PORT} (${NODE_ENV})`));
-  setInterval(() => log("⏳ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }), 30 * 60 * 1000);
-})();
-
+// ────────────────────────────────────────────────
+// HEARTBEAT
+// ────────────────────────────────────────────────
+setInterval(() => {
+  log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` });
+}, 5 * 60 * 1000);,
