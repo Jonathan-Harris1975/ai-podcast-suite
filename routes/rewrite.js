@@ -1,12 +1,11 @@
-// /app/routes/rewrite.js
+// /app/routes/rewrite.js — Final Clean Version (2025.10.11)
 import express from "express";
 import { runRewritePipeline } from "../services/rss-feed-creator/services/rewrite-pipeline.js";
 
 const router = express.Router();
 
 /**
- * POST /api/rewrite
- * Runs the AI-powered RSS rewrite pipeline
+ * POST /api/rewrite → runs the AI rewrite pipeline
  */
 router.post("/", async (req, res) => {
   try {
@@ -20,13 +19,13 @@ router.post("/", async (req, res) => {
     console.error("❌ Rewrite route failed:", err);
     res.status(500).json({
       success: false,
-      error: err.message || "Unknown error in rewrite pipeline",
+      error: err && err.message ? err.message : "Unknown rewrite error",
     });
   }
 });
 
 /**
- * Simple GET for testing
+ * GET /api/rewrite → test endpoint
  */
 router.get("/", (req, res) => {
   res.status(200).json({
