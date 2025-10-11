@@ -1,3 +1,4 @@
+log("🧩 Preflight check", { rewriteExists: fs.existsSync("./routes/rewrite.js"), podcastExists: fs.existsSync("./routes/podcast.js") });
 // /server.js — AI Podcast Suite (2025.10.11 Final Stable Fixed)
 import express from "express";
 import process from "node:process";
