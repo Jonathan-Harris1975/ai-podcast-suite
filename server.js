@@ -1,7 +1,6 @@
-// /server.js — AI Podcast Suite (Patched 2025-10-11)
+// /server.js — AI Podcast Suite (Patched Stable 2025-10-12)
 import express from "express";
 import process from "node:process";
-import fs from "node:fs";
 import fs from "node:fs";
 
 try {
@@ -11,6 +10,7 @@ try {
 } catch (err) {
   console.error("Could not read rewrite.js:", err.message);
 }
+
 const app = express();
 app.use(express.json());
 
@@ -26,7 +26,7 @@ const DISABLE_PODCAST = (process.env.DISABLE_PODCAST || "no").toLowerCase() === 
 const DISABLE_RSS = (process.env.DISABLE_RSS || "no").toLowerCase() === "yes";
 
 // ────────────────────────────────────────────────
-// 🪵 JSON Logger (Render-friendly)
+// 🪵 JSON Logger
 // ────────────────────────────────────────────────
 function log(message, meta = null) {
   const entry = { time: new Date().toISOString(), message, ...(meta ? { meta } : {}) };
@@ -84,7 +84,6 @@ async function loadRoutes() {
     disableRss: DISABLE_RSS,
   });
 
-  // ──────────── Rewrite Route ────────────
   if (!DISABLE_REWRITE) {
     try {
       const mod = await import(rewritePath);
@@ -101,7 +100,6 @@ async function loadRoutes() {
     log("🚫 Rewrite route disabled via env var");
   }
 
-  // ──────────── Podcast Route ────────────
   if (!DISABLE_PODCAST) {
     try {
       const mod = await import(podcastPath);
@@ -116,7 +114,6 @@ async function loadRoutes() {
     log("🚫 Podcast route disabled via env var");
   }
 
-  // ──────────── RSS Route ────────────
   if (!DISABLE_RSS) {
     try {
       const mod = await import(rssPath);
@@ -133,17 +130,19 @@ async function loadRoutes() {
 }
 
 // ────────────────────────────────────────────────
-// 🚀 Load Routes and Start Server (Patched by GPT)
+// 🚀 Load Routes and Start Server
 // ────────────────────────────────────────────────
-loadRoutes().then(() => {
-  app.use("*", (req, res) => {
-    res.status(404).json({ error: "Endpoint not found", path: req.originalUrl });
-  });
+loadRoutes()
+  .then(() => {
+    app.use("*", (req, res) => {
+      res.status(404).json({ error: "Endpoint not found", path: req.originalUrl });
+    });
 
-  app.listen(PORT, () => {
-    log(`✅ Server running on port ${PORT}`, { NODE_ENV });
+    app.listen(PORT, () => {
+      log(`✅ Server running on port ${PORT}`, { NODE_ENV });
+    });
+  })
+  .catch((err) => {
+    log("❌ Failed to load routes", { error: err.message });
+    process.exit(1);
   });
-}).catch((err) => {
-  log("❌ Failed to load routes", { error: err.message });
-  process.exit(1);
-});
