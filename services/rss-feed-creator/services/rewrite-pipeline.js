@@ -1,5 +1,5 @@
 // /services/rss-feed-creator/services/rewrite-pipeline.js
-// 🔁 AI Podcast Suite – RSS Feed Rewrite Pipeline (2025.10.10)
+// 🔁 AI Podcast Suite – RSS Feed Rewrite Pipeline (2025.10.11)
 // Bootstrap from local /data/*.txt to R2 if missing
 // Rotation: 5 feeds + 1 URL per run
 
@@ -7,13 +7,30 @@ import fs from "node:fs";
 import path from "node:path";
 import fetch from "node-fetch";
 import Parser from "rss-parser";
-import { log } from "../../../utils/logger.js";
 import { getObject, putJson, putText } from "../../shared/utils/r2-client.js";
 import { callOpenRouterModel } from "../utils/models.js";
 import { rebuildRss } from "./build-rss.js";
-// import { createShortLink } from "../utils/shortio.js"; // (available if you decide to use)
 
 const parser = new Parser();
+
+// ────────────────────────────────────────────────
+// Safe structured logger (Render-compatible)
+// ────────────────────────────────────────────────
+function safeLog(level, message, meta = null) {
+  try {
+    const entry = {
+      time: new Date().toISOString(),
+      level,
+      message,
+      ...(meta && typeof meta === "object" ? { meta } : {}),
+    };
+    process.stdout.write(JSON.stringify(entry) + "\n");
+  } catch {
+    process.stdout.write(
+      JSON.stringify({ time: new Date().toISOString(), level, message }) + "\n"
+    );
+  }
+}
 
 // ── R2 Keys
 const ITEMS_KEY  = "items.json";
@@ -85,25 +102,25 @@ async function ensureR2Bootstrap() {
     if (!existingFeeds && fs.existsSync(feedsPath)) {
       const localFeeds = fs.readFileSync(feedsPath, "utf-8");
       await putText(FEEDS_KEY, localFeeds);
-      log.info("🪄 Bootstrap: Uploaded local feeds.txt → R2");
+      safeLog("info", "🪄 Bootstrap: Uploaded local feeds.txt → R2");
       changed = true;
     }
 
     if (!existingUrls && fs.existsSync(urlsPath)) {
       const localUrls = fs.readFileSync(urlsPath, "utf-8");
       await putText(URLS_KEY, localUrls);
-      log.info("🪄 Bootstrap: Uploaded local urls.txt → R2");
+      safeLog("info", "🪄 Bootstrap: Uploaded local urls.txt → R2");
       changed = true;
     }
 
     if (!existingCursor) {
       const cursor = { feedIndex: 0, urlIndex: 0 };
       await putJson(CURSOR_KEY, cursor);
-      log.info("🪄 Bootstrap: cursor.json created in R2");
+      safeLog("info", "🪄 Bootstrap: cursor.json created in R2");
       changed = true;
     }
   } catch (err) {
-    log.error("❌ Bootstrap to R2 failed", { error: err.message });
+    safeLog("error", "❌ Bootstrap to R2 failed", { error: err.message });
   }
 
   return changed;
@@ -113,7 +130,7 @@ async function ensureR2Bootstrap() {
 /** 🚀 Main Rewrite Pipeline */
 // ────────────────────────────────────────────────
 export async function runRewritePipeline() {
-  log.info("🚀 Starting rewrite pipeline");
+  safeLog("info", "🚀 Starting rewrite pipeline");
 
   try {
     await ensureR2Bootstrap();
@@ -130,14 +147,14 @@ export async function runRewritePipeline() {
     const cursor = cursorRaw ? JSON.parse(cursorRaw) : { feedIndex: 0, urlIndex: 0 };
 
     if (!feeds.length && !urls.length) {
-      log.error("❌ No feeds.txt or urls.txt content found — cannot continue.");
+      safeLog("error", "❌ No feeds.txt or urls.txt content found — cannot continue.");
       throw new Error("feeds.txt and urls.txt are empty or missing");
     }
 
     // 2️⃣ Select slices (5 feeds, 1 URL)
     const feedsSlice = wrapIndex(cursor.feedIndex, FEEDS_PER_RUN, feeds);
     const urlsSlice  = wrapIndex(cursor.urlIndex,  URLS_PER_RUN,  urls);
-    log.info("📡 Selection", { feeds: feedsSlice.length, urls: urlsSlice.length });
+    safeLog("info", "📡 Selection", { feeds: feedsSlice.length, urls: urlsSlice.length });
 
     // 3️⃣ Fetch and parse feeds
     const fetchedFeeds = [];
@@ -147,9 +164,9 @@ export async function runRewritePipeline() {
         const xml  = await resp.text();
         const parsed = await parser.parseString(xml);
         fetchedFeeds.push(parsed);
-        log.info("✅ Parsed feed", { url: feedUrl, items: parsed.items?.length || 0 });
+        safeLog("info", "✅ Parsed feed", { url: feedUrl, items: parsed.items?.length || 0 });
       } catch (err) {
-        log.error("❌ Failed to fetch/parse feed", { url: feedUrl, error: err.message });
+        safeLog("error", "❌ Failed to fetch/parse feed", { url: feedUrl, error: err.message });
       }
     }
 
@@ -176,9 +193,9 @@ export async function runRewritePipeline() {
             pubDate: item.pubDate || new Date().toUTCString(),
             original: title
           });
-          log.info("🧠 Rewrote item", { title: title.slice(0, 80) });
+          safeLog("info", "🧠 Rewrote item", { title: title.slice(0, 80) });
         } catch (err) {
-          log.error("❌ Rewrite failed", { title: title.slice(0, 80), error: err.message });
+          safeLog("error", "❌ Rewrite failed", { title: title.slice(0, 80), error: err.message });
         }
       }
     }
@@ -189,22 +206,22 @@ export async function runRewritePipeline() {
       urlIndex:  (cursor.urlIndex  + URLS_PER_RUN)  % (urls.length  || 1)
     };
     await putJson(CURSOR_KEY, nextCursor);
-    log.info("🧭 Cursor updated", nextCursor);
+    safeLog("info", "🧭 Cursor updated", { nextCursor });
 
     // 6️⃣ Save rewritten items
     await putJson(ITEMS_KEY, rewrittenItems);
-    log.info("💾 Saved rewritten items", { count: rewrittenItems.length, key: ITEMS_KEY });
+    safeLog("info", "💾 Saved rewritten items", { count: rewrittenItems.length, key: ITEMS_KEY });
 
     // 7️⃣ Build + upload RSS
     await rebuildRss(rewrittenItems);
-    log.info("📢 RSS feed rebuilt and uploaded successfully");
+    safeLog("info", "📢 RSS feed rebuilt and uploaded successfully");
 
-    log.info("🎯 Rewrite pipeline completed successfully");
+    safeLog("info", "🎯 Rewrite pipeline completed successfully");
     return { ok: true, count: rewrittenItems.length };
 
   } catch (err) {
-    log.error("❌ runRewritePipeline failed", { error: err.message });
-    if (err?.stack) log.error(err.stack);
+    safeLog("error", "❌ runRewritePipeline failed", { error: err.message });
+    if (err?.stack) safeLog("error", err.stack);
     throw err;
   }
-    }
+      }
