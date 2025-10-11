@@ -1,14 +1,15 @@
 // /server.js — AI Podcast Suite (Final Stable 2025-10-11)
 import express from "express";
 import process from "node:process";
-import fs from "node:fs"; // ✅ Added to support preflight check
+import fs from "node:fs"; // ✅ Added for preflight check
 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "production";
-const HEARTBEAT_ENABLE = (process.env.HEARTBEAT_ENABLE || "no").toLowerCase() === "yes";
+const HEARTBEAT_ENABLE =
+  (process.env.HEARTBEAT_ENABLE || "no").toLowerCase() === "yes";
 
 // ────────────────────────────────────────────────
 // 🪵 JSON Logger
@@ -54,38 +55,36 @@ app.get("/", (req, res) => {
 });
 
 // ────────────────────────────────────────────────
-// 🚀 Dynamic Route Loader
+// 🚀 Dynamic Route Loader (with per-file diagnostics)
 // ────────────────────────────────────────────────
 async function loadRoutes() {
-  const rewritePath = "./routes/rewrite.js";
-  const podcastPath = "./routes/podcast.js";
-  const rssPath = "./routes/rss.js";
+  const routes = [
+    { path: "/api/rewrite", file: "./routes/rewrite.js" },
+    { path: "/api/podcast", file: "./routes/podcast.js" },
+    { path: "/api/rss", file: "./routes/rss.js" },
+  ];
 
-  log("🔍 Importing routes from", { rewritePath, podcastPath, rssPath });
+  log("🔍 Importing routes from", {
+    rewritePath: routes[0].file,
+    podcastPath: routes[1].file,
+    rssPath: routes[2].file,
+  });
 
-  try {
-    const rewriteModule = await import(rewritePath);
-    if (rewriteModule?.default) {
-      app.use("/api/rewrite", rewriteModule.default);
-      log("✅ Mounted /api/rewrite");
+  for (const route of routes) {
+    try {
+      const mod = await import(route.file);
+      if (mod?.default) {
+        app.use(route.path, mod.default);
+        log(`✅ Mounted ${route.path}`);
+      } else {
+        log(`⚠️ No default export in ${route.file}`);
+      }
+    } catch (err) {
+      log(`🚨 ${route.file} failed`, { error: err.message });
     }
-
-    const podcastModule = await import(podcastPath);
-    if (podcastModule?.default) {
-      app.use("/api/podcast", podcastModule.default);
-      log("✅ Mounted /api/podcast");
-    }
-
-    const rssModule = await import(rssPath);
-    if (rssModule?.default) {
-      app.use("/api/rss", rssModule.default);
-      log("✅ Mounted /api/rss");
-    }
-
-    log("✅ All routes mounted successfully");
-  } catch (error) {
-    log("❌ Route loading failed", { error: error.message });
   }
+
+  log("🔚 Route import pass complete");
 }
 
 // ────────────────────────────────────────────────
@@ -108,7 +107,10 @@ async function startServer() {
 
       if (HEARTBEAT_ENABLE) {
         setInterval(
-          () => log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }),
+          () =>
+            log("⏱️ Heartbeat", {
+              uptime: `${Math.round(process.uptime())}s`,
+            }),
           5 * 60 * 1000
         );
         log("❤️ Heartbeat enabled");
@@ -122,7 +124,7 @@ async function startServer() {
   }
 }
 
-startServer().catch(error => {
+startServer().catch((error) => {
   log("💥 Critical startup error", { error: error.message });
   process.exit(1);
 });
