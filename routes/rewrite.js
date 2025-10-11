@@ -1,28 +1,28 @@
-// /routes/rewrite.js — Final Stable (Render Safe)
+// /routes/rewrite.js — Render Safe Final Version (Node 22)
 import express from "express";
 import { runRewritePipeline } from "../services/rss-feed-creator/services/rewrite-pipeline.js";
 
 const router = express.Router();
 
 /**
- * GET /api/rewrite → confirms endpoint is alive
+ * GET /api/rewrite — quick check
  */
 router.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
-    message: "🎯 Rewrite endpoint active — use POST /api/rewrite to trigger the pipeline.",
+    message: "🎯 Rewrite endpoint active — POST /api/rewrite to trigger the pipeline",
   });
 });
 
 /**
- * POST /api/rewrite → runs the AI rewrite pipeline
+ * POST /api/rewrite — run rewrite pipeline
  */
 router.post("/", async (req, res) => {
   try {
     const result = await runRewritePipeline();
     return res.status(200).json({
       success: true,
-      message: "✅ Rewrite pipeline executed successfully.",
+      message: "✅ Rewrite pipeline executed successfully",
       result: result,
     });
   } catch (err) {
