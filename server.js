@@ -1,4 +1,4 @@
-// server.js — AI Podcast Suite (Render-Stable + Heartbeat Toggle 2025.10.11)
+// /server.js — AI Podcast Suite (2025.10.11 Final Stable)
 import express from "express";
 import process from "node:process";
 
@@ -10,15 +10,19 @@ const NODE_ENV = process.env.NODE_ENV || "production";
 const HEARTBEAT_ENABLE = (process.env.HEARTBEAT_ENABLE || "no").toLowerCase() === "yes";
 
 // ────────────────────────────────────────────────
-// LOGGER
+// 🪵 Logger (Render-friendly structured JSON)
 // ────────────────────────────────────────────────
 function log(message, meta = null) {
-  const entry = { time: new Date().toISOString(), message, ...(meta ? { meta } : {}) };
+  const entry = {
+    time: new Date().toISOString(),
+    message,
+    ...(meta ? { meta } : {}),
+  };
   process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
 // ────────────────────────────────────────────────
-// HEALTH CHECK
+// 🩺 Health
 // ────────────────────────────────────────────────
 app.get("/health", (req, res) => {
   log("🩺 Health check hit");
@@ -26,48 +30,54 @@ app.get("/health", (req, res) => {
     status: "ok",
     uptime: `${Math.round(process.uptime())}s`,
     environment: NODE_ENV,
-    heartbeat: HEARTBEAT_ENABLE ? "enabled" : "disabled",
   });
 });
 
 // ────────────────────────────────────────────────
-// ROUTE LOADER
+// 🏠 Friendly Root Endpoint
+// ────────────────────────────────────────────────
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "🧠 AI Podcast Suite is live",
+    endpoints: ["/api/rewrite", "/api/podcast", "/health"],
+  });
+});
+
+// ────────────────────────────────────────────────
+// 🚀 Load Routes
 // ────────────────────────────────────────────────
 async function loadRoutes() {
-  try {
-    const rewritePath = new URL("./routes/rewrite.js", import.meta.url);
-    const podcastPath = new URL("./routes/podcast.js", import.meta.url);
-    log("🔍 Importing routes from", {
-      rewritePath: rewritePath.pathname,
-      podcastPath: podcastPath.pathname,
-    });
+  const rewritePath = "./routes/rewrite.js";
+  const podcastPath = "./routes/podcast.js";
 
-    // Rewrite route
+  log("🔍 Importing routes from", { rewritePath, podcastPath });
+
+  try {
     const rewriteModule = await import(rewritePath);
-    if (rewriteModule?.default && typeof rewriteModule.default === "function") {
+    const podcastModule = await import(podcastPath);
+
+    if (rewriteModule?.default) {
       app.use("/api/rewrite", rewriteModule.default);
       log("✅ Mounted /api/rewrite");
     } else {
-      log("⚠️ Rewrite route invalid or missing default export");
+      log("⚠️ rewriteModule missing default export");
     }
 
-    // Podcast route
-    const podcastModule = await import(podcastPath);
-    if (podcastModule?.default && typeof podcastModule.default === "function") {
+    if (podcastModule?.default) {
       app.use("/api/podcast", podcastModule.default);
       log("✅ Mounted /api/podcast");
     } else {
-      log("⚠️ Podcast route invalid or missing default export");
+      log("⚠️ podcastModule missing default export");
     }
 
-    log("✅ All routes attached successfully");
+    log("✅ All routes mounted successfully");
   } catch (err) {
     log("❌ Route loading failed", { error: err.message });
   }
 }
 
 // ────────────────────────────────────────────────
-// 404 HANDLER
+// ⚠️ 404 Handler (Keep last)
 // ────────────────────────────────────────────────
 app.use((req, res) => {
   log("⚠️ 404 Not Found", { path: req.originalUrl });
@@ -75,17 +85,17 @@ app.use((req, res) => {
 });
 
 // ────────────────────────────────────────────────
-// SERVER STARTUP
+// 🧠 Start Server
 // ────────────────────────────────────────────────
 app.listen(PORT, async () => {
   log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
   await loadRoutes();
 
   if (HEARTBEAT_ENABLE) {
-    log("💓 Heartbeat enabled");
-    setInterval(() => {
-      log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` });
-    }, 5 * 60 * 1000);
+    setInterval(
+      () => log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` }),
+      5 * 60 * 1000
+    );
   } else {
     log("💤 Heartbeat disabled for cost optimization");
   }
