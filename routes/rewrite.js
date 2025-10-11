@@ -1,15 +1,19 @@
-// /routes/rewrite.js — AI Podcast Suite 2025-10-11
+// /routes/rewrite.js — AI Podcast Suite stable
 import express from "express";
-import startFeedCreator from "../services/rss-feed-creator/index.js"; // 🧠 entrypoint
+import startFeedCreator from "../services/rss-feed-creator/index.js";
 
 const router = express.Router();
 
-// GET for status check
+// Quick GET probe for Render/health checks or manual testing
 router.get("/", (req, res) => {
-  res.status(200).json({ status: "ok", message: "Rewrite route ready" });
+  res.status(200).json({
+    ok: true,
+    route: "/api/rewrite",
+    message: "Rewrite route is ready. Use POST to trigger pipeline.",
+  });
 });
 
-// POST to trigger the feed creation process
+// Main POST endpoint to run the rewrite / RSS generation pipeline
 router.post("/", async (req, res) => {
   try {
     const result = await startFeedCreator();
