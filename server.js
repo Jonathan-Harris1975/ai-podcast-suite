@@ -1,4 +1,4 @@
-// server.js — AI Podcast Suite (Render-Stable 2025.10.11)
+// server.js — AI Podcast Suite (Render-Stable + Heartbeat Toggle 2025.10.11)
 import express from "express";
 import process from "node:process";
 
@@ -7,6 +7,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "production";
+const HEARTBEAT_ENABLE = (process.env.HEARTBEAT_ENABLE || "no").toLowerCase() === "yes";
 
 // ────────────────────────────────────────────────
 // LOGGER
@@ -17,7 +18,7 @@ function log(message, meta = null) {
 }
 
 // ────────────────────────────────────────────────
-// HEALTH
+// HEALTH CHECK
 // ────────────────────────────────────────────────
 app.get("/health", (req, res) => {
   log("🩺 Health check hit");
@@ -25,36 +26,38 @@ app.get("/health", (req, res) => {
     status: "ok",
     uptime: `${Math.round(process.uptime())}s`,
     environment: NODE_ENV,
+    heartbeat: HEARTBEAT_ENABLE ? "enabled" : "disabled",
   });
 });
 
 // ────────────────────────────────────────────────
-// DYNAMIC ROUTE LOADER
+// ROUTE LOADER
 // ────────────────────────────────────────────────
 async function loadRoutes() {
   try {
     const rewritePath = new URL("./routes/rewrite.js", import.meta.url);
     const podcastPath = new URL("./routes/podcast.js", import.meta.url);
-    log("🔍 Importing routes from", { rewritePath: rewritePath.pathname, podcastPath: podcastPath.pathname });
+    log("🔍 Importing routes from", {
+      rewritePath: rewritePath.pathname,
+      podcastPath: podcastPath.pathname,
+    });
 
-    // Load rewrite route
+    // Rewrite route
     const rewriteModule = await import(rewritePath);
-    const rewriteRouter = rewriteModule?.default;
-    if (rewriteRouter && typeof rewriteRouter === "function") {
-      app.use("/api/rewrite", rewriteRouter);
+    if (rewriteModule?.default && typeof rewriteModule.default === "function") {
+      app.use("/api/rewrite", rewriteModule.default);
       log("✅ Mounted /api/rewrite");
     } else {
-      log("⚠️ Rewrite route missing default export or invalid type");
+      log("⚠️ Rewrite route invalid or missing default export");
     }
 
-    // Load podcast route
+    // Podcast route
     const podcastModule = await import(podcastPath);
-    const podcastRouter = podcastModule?.default;
-    if (podcastRouter && typeof podcastRouter === "function") {
-      app.use("/api/podcast", podcastRouter);
+    if (podcastModule?.default && typeof podcastModule.default === "function") {
+      app.use("/api/podcast", podcastModule.default);
       log("✅ Mounted /api/podcast");
     } else {
-      log("⚠️ Podcast route missing default export or invalid type");
+      log("⚠️ Podcast route invalid or missing default export");
     }
 
     log("✅ All routes attached successfully");
@@ -72,16 +75,18 @@ app.use((req, res) => {
 });
 
 // ────────────────────────────────────────────────
-// START SERVER
+// SERVER STARTUP
 // ────────────────────────────────────────────────
 app.listen(PORT, async () => {
   log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
   await loadRoutes();
-});
 
-// ────────────────────────────────────────────────
-// HEARTBEAT
-// ────────────────────────────────────────────────
-setInterval(() => {
-  log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` });
-}, 5 * 60 * 1000);,
+  if (HEARTBEAT_ENABLE) {
+    log("💓 Heartbeat enabled");
+    setInterval(() => {
+      log("⏱️ Heartbeat", { uptime: `${Math.round(process.uptime())}s` });
+    }, 5 * 60 * 1000);
+  } else {
+    log("💤 Heartbeat disabled for cost optimization");
+  }
+});
