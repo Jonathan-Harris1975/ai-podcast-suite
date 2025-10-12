@@ -1,148 +1,40 @@
-// /server.js — AI Podcast Suite (Patched Stable 2025-10-12)
+// server.js — absolute minimal route sanity test
 import express from "express";
 import process from "node:process";
 import fs from "node:fs";
-
-try {
-  const content = fs.readFileSync("./routes/rewrite.js", "utf8");
-  console.log("=== REWRITE FILE SIZE:", content.length, "bytes ===");
-  console.log(content.slice(-100)); // last 100 chars for sanity
-} catch (err) {
-  console.error("Could not read rewrite.js:", err.message);
-}
 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "production";
-const HEARTBEAT_ENABLE = (process.env.HEARTBEAT_ENABLE || "no").toLowerCase() === "yes";
 
-// ────────────────────────────────────────────────
-// 🧩 Environment Flags
-// ────────────────────────────────────────────────
-const DISABLE_REWRITE = (process.env.DISABLE_REWRITE || "no").toLowerCase() === "yes";
-const DISABLE_PODCAST = (process.env.DISABLE_PODCAST || "no").toLowerCase() === "yes";
-const DISABLE_RSS = (process.env.DISABLE_RSS || "no").toLowerCase() === "yes";
-
-// ────────────────────────────────────────────────
-// 🪵 JSON Logger
-// ────────────────────────────────────────────────
 function log(message, meta = null) {
   const entry = { time: new Date().toISOString(), message, ...(meta ? { meta } : {}) };
-  process.stdout.write(JSON.stringify(entry) + "\n");
+  try { process.stdout.write(JSON.stringify(entry) + "\n"); } catch {}
 }
 
-// ────────────────────────────────────────────────
-// 🧩 Preflight file check
-// ────────────────────────────────────────────────
+// confirm file existence
 log("🧩 Preflight check", {
   rewriteExists: fs.existsSync("./routes/rewrite.js"),
-  podcastExists: fs.existsSync("./routes/podcast.js"),
-  rssExists: fs.existsSync("./routes/rss.js"),
 });
 
-// ────────────────────────────────────────────────
-// 🩺 Health Endpoint
-// ────────────────────────────────────────────────
 app.get("/health", (req, res) => {
   log("🩺 Health check hit");
-  res.status(200).json({
-    status: "ok",
-    uptime: `${Math.round(process.uptime())}s`,
-    environment: NODE_ENV,
-    disabledRoutes: {
-      rewrite: DISABLE_REWRITE,
-      podcast: DISABLE_PODCAST,
-      rss: DISABLE_RSS,
-    },
-  });
+  res.status(200).json({ status: "ok" });
 });
 
-// ────────────────────────────────────────────────
-// 🏠 Root Endpoint
-// ────────────────────────────────────────────────
-app.get("/", (req, res) => {
-  res.status(200).json({
-    message: "🧠 AI Podcast Suite is live",
-    endpoints: ["/api/rewrite", "/api/podcast", "/api/rss", "/health"],
-  });
+// --- import directly, no async, no env flags ---
+import rewriteRouter from "./routes/rewrite.js";
+app.use("/api/rewrite", rewriteRouter);
+log("✅ Mounted /api/rewrite");
+
+// 404 handler
+app.use("*", (req, res) => {
+  log("⚠️ 404 Not Found", { path: req.originalUrl });
+  res.status(404).json({ error: "Endpoint not found", path: req.originalUrl });
 });
 
-// ────────────────────────────────────────────────
-// 🚀 Dynamic Route Loader
-// ────────────────────────────────────────────────
-async function loadRoutes() {
-  const rewritePath = "./routes/rewrite.js";
-  const podcastPath = "./routes/podcast.js";
-  const rssPath = "./routes/rss.js";
-
-  log("🔍 Importing routes from", { rewritePath, podcastPath, rssPath });
-  log("⚙️ Debug Flags", {
-    disableRewrite: DISABLE_REWRITE,
-    disablePodcast: DISABLE_PODCAST,
-    disableRss: DISABLE_RSS,
-  });
-
-  if (!DISABLE_REWRITE) {
-    try {
-      const mod = await import(rewritePath);
-      if (mod?.default) {
-        app.use("/api/rewrite", mod.default);
-        log("✅ Mounted /api/rewrite");
-      } else {
-        log("⚠️ rewrite.js missing default export");
-      }
-    } catch (err) {
-      log("🚨 ./routes/rewrite.js failed to import", { error: err.message });
-    }
-  } else {
-    log("🚫 Rewrite route disabled via env var");
-  }
-
-  if (!DISABLE_PODCAST) {
-    try {
-      const mod = await import(podcastPath);
-      if (mod?.default) {
-        app.use("/api/podcast", mod.default);
-        log("✅ Mounted /api/podcast");
-      }
-    } catch (err) {
-      log("🚨 ./routes/podcast.js failed to import", { error: err.message });
-    }
-  } else {
-    log("🚫 Podcast route disabled via env var");
-  }
-
-  if (!DISABLE_RSS) {
-    try {
-      const mod = await import(rssPath);
-      if (mod?.default) {
-        app.use("/api/rss", mod.default);
-        log("✅ Mounted /api/rss");
-      }
-    } catch (err) {
-      log("🚨 ./routes/rss.js failed to import", { error: err.message });
-    }
-  } else {
-    log("🚫 RSS route disabled via env var");
-  }
-}
-
-// ────────────────────────────────────────────────
-// 🚀 Load Routes and Start Server
-// ────────────────────────────────────────────────
-loadRoutes()
-  .then(() => {
-    app.use("*", (req, res) => {
-      res.status(404).json({ error: "Endpoint not found", path: req.originalUrl });
-    });
-
-    app.listen(PORT, () => {
-      log(`✅ Server running on port ${PORT}`, { NODE_ENV });
-    });
-  })
-  .catch((err) => {
-    log("❌ Failed to load routes", { error: err.message });
-    process.exit(1);
-  });
+app.listen(PORT, () => {
+  log("🚀 Server listening", { PORT, NODE_ENV });
+});
