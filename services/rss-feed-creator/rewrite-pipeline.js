@@ -11,7 +11,7 @@ import { rebuildRss } from "./build-rss.js";
 const parser = new Parser();
 
 function log(level, message, meta = null) {
-  const entry = { time: new Date().toISOString(), level, message, ...(meta ? { meta } : {}) };
+  const entry = { time: new Date().toISOString(), level: level, message: message, ...(meta ? { meta } : {}) };
   process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
