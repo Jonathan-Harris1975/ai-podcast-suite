@@ -2,8 +2,14 @@
   "name": "ai-podcast-suite",
   "version": "1.0.0",
   "type": "module",
+  "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo 'Skipping TypeScript build — this project is pure ESM JS'",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.663.0",
@@ -16,19 +22,16 @@
     "ffprobe-static": "*",
     "fluent-ffmpeg": "*",
     "logform": "*",
-    "module": "*",
     "node-fetch": "^3.3.2",
     "openai": "^4.56.0",
     "p-limit": "*",
     "pino": "^9.2.0",
     "pino-http": "*",
     "process": "*",
-    "rss-parser": "*",
+    "rss-parser": "^3.13.0",
     "supertest": "*",
     "undici": "*",
-    "utils": "*",
-    "winston": "*",
-    "zod": "*"
-  },
-  "main": "server.js"
+    "winston": "^3.11.0",
+    "zod": "^3.23.8"
+  }
 }
