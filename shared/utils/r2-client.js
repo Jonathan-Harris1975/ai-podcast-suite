@@ -1,150 +1,200 @@
-// /services/utils/r2-client.js
-// 🧠 AI Podcast Suite — Cloudflare R2 Unified Client (2025-10-12)
-// Compatible with repo logging and node-fetch pattern.
+// /shared/utils/r2-client.js
+// ⚙️ AI Podcast Suite — Smart Cloudflare R2 Client (2025.10.12 FINAL)
+// Full audio-aware automation (Render / Shiper ready)
 
-import fetch from "node-fetch";
-import { log } from "./logger.js";
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 // ────────────────────────────────────────────────
-// 🔧 Core Env Configuration
+// 🪵 Structured Logger
 // ────────────────────────────────────────────────
-const R2_ENDPOINT = process.env.R2_ENDPOINT;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+function log(level, message, meta = undefined) {
+  const entry = { time: new Date().toISOString(), level, message };
+  if (meta && typeof meta === "object") entry.meta = meta;
+  process.stdout.write(JSON.stringify(entry) + "\n");
+}
 
-// All buckets mapped 1-to-1 from env
-const BUCKETS = {
-  chunks: process.env.R2_BUCKET_CHUNKS,
-  merged: process.env.R2_BUCKET_MERGED,
-  meta: process.env.R2_BUCKET_META,
-  podcastRssFeeds: process.env.R2_BUCKET_PODCAST_RSS_FEEDS,
-  podcast: process.env.R2_BUCKET_PODCAST,
-  rawText: process.env.R2_BUCKET_RAW_TEXT,
-  raw: process.env.R2_BUCKET_RAW,
-  rssFeeds: process.env.R2_BUCKET_RSS_FEEDS,
-  transcripts: process.env.R2_BUCKET_TRANSCRIPTS,
+// ────────────────────────────────────────────────
+// 🌍 Cloudflare R2 Configuration
+// ────────────────────────────────────────────────
+const endpoint = process.env.R2_ENDPOINT;
+const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+
+// Register all real buckets
+const buckets = {
+  ART: process.env.R2_BUCKET_ART,
+  CHUNKS: process.env.R2_BUCKET_CHUNKS,
+  MERGED: process.env.R2_BUCKET_MERGED,
+  META: process.env.R2_BUCKET_META,
+  PODCAST_RSS_FEEDS: process.env.R2_BUCKET_PODCAST_RSS_FEEDS,
+  PODCAST: process.env.R2_BUCKET_PODCAST, // ✅ Final merged podcasts
+  RAW_TEXT: process.env.R2_BUCKET_RAW_TEXT,
+  RAW: process.env.R2_BUCKET_RAW, // ✅ Raw audio chunks
+  RSS_FEEDS: process.env.R2_BUCKET_RSS_FEEDS,
+  TRANSCRIPTS: process.env.R2_BUCKET_TRANSCRIPTS,
 };
 
-// Public base URLs (for GETs)
-const PUBLIC_URLS = {
-  chunks: process.env.R2_PUBLIC_BASE_URL_CHUNKS,
-  merged: process.env.R2_PUBLIC_BASE_URL_MERGE,
-  meta: process.env.R2_PUBLIC_BASE_URL_META,
-  podcastRssFeeds: process.env.R2_PUBLIC_BASE_URL_PODCAST_RSS,
-  podcast: process.env.R2_PUBLIC_BASE_URL_PODCAST,
-  rawText: process.env.R2_PUBLIC_BASE_URL_RAW_TEXT,
-  raw: process.env.R2_PUBLIC_BASE_URL_RAW,
-  rssFeeds: process.env.R2_PUBLIC_BASE_URL_RSS,
-  transcripts: process.env.R2_PUBLIC_BASE_URL_TRANSCRIPT,
-};
+if (!endpoint || !accessKeyId || !secretAccessKey) {
+  log("warn", "⚠️ Missing R2 credentials — client disabled.");
+}
+
+const client =
+  endpoint && accessKeyId && secretAccessKey
+    ? new S3Client({
+        region: "auto",
+        endpoint,
+        credentials: { accessKeyId, secretAccessKey },
+      })
+    : null;
 
 // ────────────────────────────────────────────────
-// 🪵 Internal helper
+// 🧠 Smart Bucket Detection
 // ────────────────────────────────────────────────
-function authHeader() {
-  if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) return {};
-  const token = Buffer.from(`${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}`).toString("base64");
-  return { Authorization: `Basic ${token}` };
+function detectBucket(Key = "") {
+  const key = Key.toLowerCase();
+
+  // 1️⃣ Podcast RSS feeds
+  if (key.includes("podcast-rss") || key.includes("podcast_feed") || key.includes("podcast.xml"))
+    return buckets.PODCAST_RSS_FEEDS;
+
+  // 2️⃣ AI rewrite RSS feeds
+  if (key.endsWith(".rss") || key.includes("ai-rss") || key.includes("feed.xml"))
+    return buckets.RSS_FEEDS;
+
+  // 3️⃣ Meta data
+  if (key.includes("meta") || key.includes("cursor") || key.includes("items"))
+    return buckets.META;
+
+  // 4️⃣ Transcripts
+  if (key.includes("transcript") || key.includes("caption"))
+    return buckets.TRANSCRIPTS;
+
+  // 5️⃣ Raw text sources
+  if (key.endsWith(".txt") || key.includes("feeds.txt") || key.includes("urls.txt"))
+    return buckets.RAW_TEXT;
+
+  // 6️⃣ Final merged podcast audio
+  if (
+    key.endsWith(".mp3") ||
+    key.endsWith(".wav") ||
+    key.endsWith(".flac") ||
+    key.endsWith(".m4a")
+  ) {
+    // Differentiate raw chunks vs final
+    if (key.includes("chunk") || key.includes("segment") || key.includes("part"))
+      return buckets.RAW; // 🎙️ Raw audio chunk
+    return buckets.PODCAST; // 🎧 Final podcast
+  }
+
+  // 7️⃣ Artwork
+  if (key.endsWith(".jpg") || key.endsWith(".jpeg") || key.endsWith(".png") || key.endsWith(".webp"))
+    return buckets.ART;
+
+  // 8️⃣ Default fallback
+  return buckets.MERGED;
 }
 
 // ────────────────────────────────────────────────
-// 🧭 Bucket selector (based on key / file type)
+// 🔧 Helper — Stream → String
 // ────────────────────────────────────────────────
-function selectBucket(key = "") {
-  const lower = key.toLowerCase();
-  if (lower.endsWith(".mp3")) return BUCKETS.podcast;
-  if (lower.endsWith(".xml")) return BUCKETS.rssFeeds;
-  if (lower.endsWith(".json")) return BUCKETS.meta;
-  if (lower.includes("chunk")) return BUCKETS.chunks;
-  if (lower.includes("merge")) return BUCKETS.merged;
-  if (lower.includes("raw-text")) return BUCKETS.rawText;
-  if (lower.includes("raw")) return BUCKETS.raw;
-  if (lower.includes("transcript")) return BUCKETS.transcripts;
-  if (lower.includes("rss")) return BUCKETS.podcastRssFeeds;
-  return BUCKETS.meta;
-}
-
-function selectPublicBase(key = "") {
-  const lower = key.toLowerCase();
-  if (lower.endsWith(".mp3")) return PUBLIC_URLS.podcast;
-  if (lower.endsWith(".xml")) return PUBLIC_URLS.rssFeeds;
-  if (lower.endsWith(".json")) return PUBLIC_URLS.meta;
-  if (lower.includes("chunk")) return PUBLIC_URLS.chunks;
-  if (lower.includes("merge")) return PUBLIC_URLS.merged;
-  if (lower.includes("raw-text")) return PUBLIC_URLS.rawText;
-  if (lower.includes("raw")) return PUBLIC_URLS.raw;
-  if (lower.includes("transcript")) return PUBLIC_URLS.transcripts;
-  if (lower.includes("rss")) return PUBLIC_URLS.podcastRssFeeds;
-  return PUBLIC_URLS.meta;
+async function streamToString(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 // ────────────────────────────────────────────────
-// 📥 getObject
+// 📦 Core Operations
 // ────────────────────────────────────────────────
-export async function getObject(key) {
-  const base = selectPublicBase(key);
-  const url = `${base}/${encodeURIComponent(key)}`;
+export async function getObject(Key) {
+  if (!client) return null;
+  const Bucket = detectBucket(Key);
   try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      log.warn({ key, status: res.status }, "⚠️ R2 getObject non-200");
-      return null;
-    }
-    const text = await res.text();
-    log.info({ key, base }, "✅ R2 getObject success");
-    return text;
+    const result = await client.send(new GetObjectCommand({ Bucket, Key }));
+    const body = await streamToString(result.Body);
+    log("info", "✅ R2 getObject", { Bucket, Key, bytes: body.length });
+    return body;
   } catch (err) {
-    log.error({ key, error: err.message }, "❌ R2 getObject failed");
+    log("error", "❌ R2 getObject failed", { Bucket, Key, error: err.message });
     return null;
   }
 }
 
-// ────────────────────────────────────────────────
-// 💾 putJson
-// ────────────────────────────────────────────────
-export async function putJson(key, obj) {
-  const bucket = selectBucket(key);
-  const url = `${R2_ENDPOINT}/${bucket}/${encodeURIComponent(key)}`;
+export async function putText(Key, text) {
+  if (!client) return null;
+  const Bucket = detectBucket(Key);
   try {
-    const res = await fetch(url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader(),
-      },
-      body: JSON.stringify(obj, null, 2),
-    });
-    if (!res.ok) {
-      log.warn({ key, status: res.status }, "⚠️ R2 putJson non-200");
-    } else {
-      log.info({ key, bucket }, "✅ R2 putJson success");
-    }
+    await client.send(
+      new PutObjectCommand({
+        Bucket,
+        Key,
+        Body: text,
+        ContentType: "text/plain",
+      })
+    );
+    log("info", "✅ R2 putText", { Bucket, Key, bytes: text.length });
+    return true;
   } catch (err) {
-    log.error({ key, error: err.message }, "❌ R2 putJson failed");
+    log("error", "❌ R2 putText failed", { Bucket, Key, error: err.message });
+    return false;
+  }
+}
+
+export async function putJson(Key, data) {
+  if (!client) return null;
+  const Bucket = detectBucket(Key);
+  try {
+    const Body = JSON.stringify(data, null, 2);
+    await client.send(
+      new PutObjectCommand({
+        Bucket,
+        Key,
+        Body,
+        ContentType: "application/json",
+      })
+    );
+    log("info", "✅ R2 putJson", { Bucket, Key, bytes: Body.length });
+    return true;
+  } catch (err) {
+    log("error", "❌ R2 putJson failed", { Bucket, Key, error: err.message });
+    return false;
+  }
+}
+
+export async function putBuffer(Key, buffer, contentType = "application/octet-stream") {
+  if (!client) return null;
+  const Bucket = detectBucket(Key);
+  try {
+    await client.send(new PutObjectCommand({ Bucket, Key, Body: buffer, ContentType: contentType }));
+    log("info", "✅ R2 putBuffer", { Bucket, Key, bytes: buffer.length });
+    return true;
+  } catch (err) {
+    log("error", "❌ R2 putBuffer failed", { Bucket, Key, error: err.message });
+    return false;
+  }
+}
+
+export async function deleteObject(Key) {
+  if (!client) return null;
+  const Bucket = detectBucket(Key);
+  try {
+    await client.send(new DeleteObjectCommand({ Bucket, Key }));
+    log("info", "🗑️ R2 deleteObject", { Bucket, Key });
+    return true;
+  } catch (err) {
+    log("error", "❌ R2 deleteObject failed", { Bucket, Key, error: err.message });
+    return false;
   }
 }
 
 // ────────────────────────────────────────────────
-// ✍️ putText
+// 🔚 Export
 // ────────────────────────────────────────────────
-export async function putText(key, text) {
-  const bucket = selectBucket(key);
-  const url = `${R2_ENDPOINT}/${bucket}/${encodeURIComponent(key)}`;
-  try {
-    const res = await fetch(url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        ...authHeader(),
-      },
-      body: text,
-    });
-    if (!res.ok) {
-      log.warn({ key, status: res.status }, "⚠️ R2 putText non-200");
-    } else {
-      log.info({ key, bucket }, "✅ R2 putText success");
-    }
-  } catch (err) {
-    log.error({ key, error: err.message }, "❌ R2 putText failed");
-  }
-    }
+export default {
+  getObject,
+  putJson,
+  putText,
+  putBuffer,
+  deleteObject,
+  detectBucket,
+};
