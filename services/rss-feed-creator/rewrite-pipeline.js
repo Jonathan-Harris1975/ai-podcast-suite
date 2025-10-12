@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import fetch from "node-fetch";
 import Parser from "rss-parser";
-import { getObject, putJson, putText } from "../../shared/utils/r2-client.js";
+import { getObject, putJson, putText } from "../shared/utils/r2-client.js";
 import { callOpenRouterModel } from "../utils/models.js";
 import { rebuildRss } from "./build-rss.js";
 
