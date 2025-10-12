@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Parser from "rss-parser";
-
+import { RSS_PROMPTS } from "./utils/rss-prompts.js";
 // Use Node's global fetch (no node-fetch)
 const parser = new Parser();
 
@@ -152,11 +152,7 @@ export async function runRewritePipeline() {
       for (const item of items) {
         const title = item.title || "(untitled)";
         const snippet = item.contentSnippet || item.content || "";
-        const prompt =
-          "Rewrite this AI news headline and summary in a concise British Gen-X tone.\n\n" +
-          `Title: ${title}\n` +
-          `Summary: ${snippet}\n\n` +
-          "— Keep it punchy. No hashtags or emojis.";
+         const prompt = RSS_PROMPTS.newsletterQuality({ title, snippet });
 
         try {
           const modelResp = await callOpenRouterModel(prompt);
