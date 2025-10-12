@@ -36,8 +36,8 @@ router.post("/run", async (req, res) => {
   log("rewrite: POST /run");
 
   try {
-    // ⚠️ Lazy import so a broken pipeline can't block route mounting
-    const mod = await import("../services/rss-feed-creator/services/rewrite-pipeline.js");
+    // ✅ Fixed import path for Shiper container
+    const mod = await import("../services/rss-feed-creator/rewrite-pipeline.js");
     const runRewritePipeline = mod?.runRewritePipeline || mod?.default;
     if (typeof runRewritePipeline !== "function") {
       throw new Error("runRewritePipeline() not exported or invalid");
@@ -58,7 +58,10 @@ router.post("/run", async (req, res) => {
       ok: false,
       route: "rewrite",
       error: err.message,
-      stack: NODE_ENV === "development" ? err.stack : undefined,
+      stack:
+        process.env.NODE_ENV === "development"
+          ? err.stack
+          : undefined,
     });
   }
 });
