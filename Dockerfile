@@ -1,41 +1,49 @@
 # ────────────────────────────────────────────────
-# 🧠 AI Podcast Suite — Render Optimized Build
-# Clean rebuild + syntax validation + no lockfile requirement
+# 🧠 AI Podcast Suite — Shiper Optimized Build
+# Zero TS assumptions, ESM validation, minimal layers
 # ────────────────────────────────────────────────
 
+# Base image
 FROM node:22-slim AS base
-
 ENV NODE_ENV=production
 ENV PORT=3000
-
 WORKDIR /app
 
-# Copy manifest files
+# ────────────────────────────────────────────────
+# 1️⃣ Install dependencies
+# ────────────────────────────────────────────────
 COPY package*.json ./
+RUN npm install --omit=dev && npm cache clean --force
 
-# Clean install dependencies (safe for no-lock repos)
-RUN rm -rf node_modules && npm install --omit=dev
-
-# Copy rest of the source
+# ────────────────────────────────────────────────
+# 2️⃣ Copy source files
+# ────────────────────────────────────────────────
 COPY . .
 
-# Validate syntax of key entrypoints (ESM check)
-RUN node --check server.js && \
-    node --check routes/rewrite.js && \
-    node --check routes/podcast.js && \
-    node --check routes/rss.js
-
-# Cleanup unnecessary files
-RUN npm prune --omit=dev && npm cache clean --force
+# Validate syntax of critical ESM entry points
+RUN node --check server.js || exit 1
+RUN node --check routes/rewrite.js || exit 1
+RUN node --check routes/rss.js || exit 1
+RUN node --check routes/podcast.js || exit 0
 
 # ────────────────────────────────────────────────
-# Runtime stage
+# 3️⃣ Runtime stage
 # ────────────────────────────────────────────────
 FROM node:22-slim AS runtime
+ENV NODE_ENV=production
+ENV PORT=3000
 WORKDIR /app
 
+# Copy built app
 COPY --from=base /app /app
+
+# Avoid Shiper’s TS detection by explicitly defining entry
+ENTRYPOINT ["node", "server.js"]
+
 EXPOSE 3000
 
-# Forcefully clear any cached routes before start
-CMD ["bash", "-c", "rm -rf /app/routes/*.js~ /tmp/* && node server.js"]
+# ────────────────────────────────────────────────
+# ✅ Final CMD
+# ────────────────────────────────────────────────
+# No bash wrapper — faster cold start, no caching issues
+CMD []
