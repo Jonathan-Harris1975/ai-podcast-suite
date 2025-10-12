@@ -1,67 +1,33 @@
-// routes/rewrite.js — Stable Rewrite Route (2025-10-12)
+// /routes/rewrite.js — rewrite endpoint (clean)
 import express from "express";
+import { runRewritePipeline } from "../services/rss-feed-creator/rewrite-pipeline.js";
+
 const router = express.Router();
 
-// ────────────────────────────────────────────────
-// Structured logger (Render / Shiper friendly)
-// ────────────────────────────────────────────────
-function log(message, meta = null) {
-  const entry = { time: new Date().toISOString(), message, ...(meta ? { meta } : {}) };
-  try { process.stdout.write(JSON.stringify(entry) + "\n"); } catch {}
+function log(message, meta) {
+  const entry = { time: new Date().toISOString(), message };
+  if (meta && typeof meta === "object") entry.meta = meta;
+  process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
-// ────────────────────────────────────────────────
-// GET /api/rewrite → route info
-// ────────────────────────────────────────────────
-router.get("/", (req, res) => {
-  log("rewrite: GET /");
-  res.status(200).json({
-    ok: true,
-    route: "rewrite",
-    endpoints: ["/api/rewrite", "/api/rewrite/ping", "/api/rewrite/run"],
-  });
+// Quick health probe
+router.get("/health", (_req, res) => {
+  res.json({ ok: true, service: "rewrite" });
 });
 
-// ────────────────────────────────────────────────
-// GET /api/rewrite/ping → health check
-// ────────────────────────────────────────────────
-router.get("/ping", (req, res) => {
-  res.status(200).json({ ok: true, pong: true, ts: new Date().toISOString() });
-});
-
-// ────────────────────────────────────────────────
-// POST /api/rewrite/run → triggers AI rewrite pipeline
-// ────────────────────────────────────────────────
+// Kick the pipeline
 router.post("/run", async (req, res) => {
   log("rewrite: POST /run");
-
   try {
-    // ✅ Fixed import path for Shiper container
-    const mod = await import("../services/rss-feed-creator/rewrite-pipeline.js");
-    const runRewritePipeline = mod?.runRewritePipeline || mod?.default;
-    if (typeof runRewritePipeline !== "function") {
-      throw new Error("runRewritePipeline() not exported or invalid");
-    }
-
     const result = await runRewritePipeline();
-    log("rewrite: pipeline completed", { count: result?.count || 0 });
-
-    res.status(200).json({
-      ok: true,
-      route: "rewrite",
-      message: "Pipeline completed successfully",
-      result,
-    });
+    res.json({ ok: true, result });
   } catch (err) {
-    log("rewrite: pipeline failed", { error: err.message });
+    log("rewrite: pipeline failed", { error: err?.message || String(err) });
     res.status(500).json({
       ok: false,
-      route: "rewrite",
-      error: err.message,
-      stack:
-        process.env.NODE_ENV === "development"
-          ? err.stack
-          : undefined,
+      error: err?.message || "Unknown error",
+      // only include stack in dev
+      stack: (process.env.NODE_ENV || "").toLowerCase() === "development" ? err?.stack : undefined,
     });
   }
 });
