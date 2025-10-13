@@ -1,43 +1,78 @@
 // services/shared/utils/r2-client.js
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { info, warn, error } from "./logger.js";
+// Cloudflare R2 utility functions for AI Podcast Suite
+// Provides getObject, putJson, and low-level r2Client export for raw uploads
 
-const endpoint = process.env.R2_ENDPOINT;
-const accessKeyId = process.env.R2_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
+import { info, error } from "./logger.js";
 
-let s3 = null;
-if (endpoint && accessKeyId && secretAccessKey) {
-  s3 = new S3Client({
-    region: "auto",
-    endpoint,
-    credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: true,
-  });
-} else {
-  warn("r2.disabled", { reason: "Missing endpoint or credentials" });
-}
+// ────────────────────────────────────────────────
+// Client setup
+// ────────────────────────────────────────────────
+const R2_ENDPOINT = process.env.R2_ENDPOINT || "https://<your-account-id>.r2.cloudflarestorage.com";
+const R2_ACCESS_KEY = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_REGION = process.env.R2_REGION || "auto";
 
-export async function getObject(Bucket, Key) {
-  if (!s3) return null;
+export const r2Client = new S3Client({
+  region: R2_REGION,
+  endpoint: R2_ENDPOINT,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY,
+    secretAccessKey: R2_SECRET_KEY,
+  },
+});
+
+// ────────────────────────────────────────────────
+// Utilities
+// ────────────────────────────────────────────────
+export async function getObject(bucket, key) {
   try {
-    const out = await s3.send(new GetObjectCommand({ Bucket, Key }));
-    const buf = await out.Body.transformToByteArray();
-    return new TextDecoder().decode(buf);
+    const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
+    const res = await r2Client.send(cmd);
+    const body = await res.Body?.transformToString?.("utf-8");
+    return body || null;
   } catch (err) {
-    if (err?.$metadata?.httpStatusCode == 404) return null;
-    error("r2.get.fail", { bucket: Bucket, key: Key, error: err.message });
+    if (err.name !== "NoSuchKey") error("r2.getObject.fail", { bucket, key, error: err.message });
     return null;
   }
 }
 
-export async function putText(Bucket, Key, text, ContentType = "text/plain; charset=utf-8") {
-  if (!s3) throw new Error("R2 not configured");
-  const Body = new TextEncoder().encode(text);
-  await s3.send(new PutObjectCommand({ Bucket, Key, Body, ContentType }));
-  info("r2.put", { bucket: Bucket, key: Key, bytes: Body.length });
+export async function putJson(bucket, key, data) {
+  try {
+    const body = JSON.stringify(data, null, 2);
+    const cmd = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: "application/json; charset=utf-8",
+    });
+    await r2Client.send(cmd);
+    info("r2.putJson.success", { bucket, key });
+  } catch (err) {
+    error("r2.putJson.fail", { bucket, key, error: err.message });
+    throw err;
+  }
 }
 
-export async function putJson(Bucket, Key, obj) {
-  return putText(Bucket, Key, JSON.stringify(obj, null, 2), "application/json; charset=utf-8");
+// Optional: raw text or XML writer
+export async function putText(bucket, key, text, contentType = "text/plain; charset=utf-8") {
+  try {
+    const cmd = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: text,
+      ContentType: contentType,
+    });
+    await r2Client.send(cmd);
+    info("r2.putText.success", { bucket, key });
+  } catch (err) {
+    error("r2.putText.fail", { bucket, key, error: err.message });
+    throw err;
+  }
 }
+
+export { r2Client }; // ✅ this line ensures your import works
