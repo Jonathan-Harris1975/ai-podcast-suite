@@ -8,7 +8,7 @@ import fetch from "node-fetch";
 import { log } from "../../../shared/utils/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const aiConfigPath = path.resolve(__dirname, "../../../scripts/ai-config.js");
+const aiConfigPath = path.resolve(__dirname, "../../../shared/utils/ai-config.js");
 
 let modelConfig;
 try {
