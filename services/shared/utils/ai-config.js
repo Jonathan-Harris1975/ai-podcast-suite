@@ -3,10 +3,10 @@ export const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://o
 
 const DEFAULT_MODELS = [
     "openai/gpt-4o-mini",
-  "anthropic/claude-3.5-sonnet",
+  "anthropic/claude-4.5-sonnet",
     "deepseek/deepseek-chat"
   "google/gemini-2.0-flash-001",
-  "meta-llama/llama-3.1-8b-instruct"
+  "meta-llama/llama-4-scout"
 ];
 
 export const MODEL_ORDER = (process.env.OPENROUTER_MODELS || "")
