@@ -1,79 +1,118 @@
 // services/rss-feed-creator/rewrite-pipeline.js
+// AI Podcast Suite – RSS Feed Rewrite Pipeline (2025-10-13)
+// Auto-bootstraps feeds from /data → R2, rewrites items using OpenRouter models.
+
 import fetch from "node-fetch";
 import Parser from "rss-parser";
 import { getObject, putJson } from "../shared/utils/r2-client.js";
 import { info, error } from "../shared/utils/logger.js";
 import { rewriteItem } from "./utils/models.js";
 import { rebuildRss } from "./build-rss.js";
+import { ensureR2Bootstrap } from "./bootstrap.js";
 
 const parser = new Parser();
 
+// ────────────────────────────────────────────────
+// Constants & Environment
+// ────────────────────────────────────────────────
 const ITEMS_KEY = process.env.REWRITTEN_ITEMS_KEY || "items.json";
 const FEEDS_LIST_KEY = process.env.FEEDS_LIST_KEY || "feeds.txt";
 const RSS_BUCKET = process.env.R2_BUCKET_RSS_FEEDS;
+const MAX_ITEMS_PER_FEED = parseInt(process.env.MAX_ITEMS_PER_FEED || "3", 10);
 
+// ────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────
 function parseList(text) {
   return (text || "")
     .split(/\r?\n/)
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean)
-    .filter(s => !s.startsWith("#"));
+    .filter((s) => !s.startsWith("#"));
 }
 
 function guid() {
   return "RSS-" + Math.random().toString(36).slice(2, 10);
 }
 
-function clamp(text, min=200, max=400) {
+function clamp(text, min = 200, max = 400) {
   const s = (text || "").replace(/\s+/g, " ").trim();
   if (s.length <= max) return s;
   let cut = s.slice(0, max);
-  const end = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
+  const end = Math.max(
+    cut.lastIndexOf("."),
+    cut.lastIndexOf("!"),
+    cut.lastIndexOf("?")
+  );
   return (end >= min ? cut.slice(0, end + 1) : cut) + (end >= min ? "" : "…");
 }
 
+// ────────────────────────────────────────────────
+// Main Pipeline
+// ────────────────────────────────────────────────
 export async function runRewritePipeline() {
   info("rewrite.pipeline.start", {});
 
-  if (!RSS_BUCKET) throw new Error("R2_BUCKET_RSS_FEEDS is required");
+  if (!RSS_BUCKET)
+    throw new Error("R2_BUCKET_RSS_FEEDS is required in environment");
 
+  // 🪄 Ensure R2 bucket has feeds.txt, urls.txt, and cursor.json
+  await ensureR2Bootstrap();
+
+  // Load feeds list from R2
   const feedsTxt = await getObject(RSS_BUCKET, FEEDS_LIST_KEY);
-  if (!feedsTxt) throw new Error(`Missing ${FEEDS_LIST_KEY} in bucket ${RSS_BUCKET}`);
+  if (!feedsTxt)
+    throw new Error(`feeds.txt not found in bucket ${RSS_BUCKET}`);
+
   const feeds = parseList(feedsTxt);
-  if (!feeds.length) throw new Error("No feeds defined");
+  if (!feeds.length) throw new Error("feeds.txt is empty – no feeds defined");
 
   const itemsOut = [];
 
-  for (const url of feeds) {
+  // ── Process each feed
+  for (const feedUrl of feeds) {
     try {
-      const resp = await fetch(url);
+      const resp = await fetch(feedUrl);
+      if (!resp.ok)
+        throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
       const xml = await resp.text();
       const parsed = await parser.parseString(xml);
-      const items = (parsed.items || []).slice(0, 3);
+      const items = (parsed.items || []).slice(0, MAX_ITEMS_PER_FEED);
+
       for (const it of items) {
         const title = it.title || "(untitled)";
         const summary = it.contentSnippet || it.content || "";
         try {
+          // ✨ Rewrite using OpenRouter model
           const rewritten = await rewriteItem(title, summary);
           itemsOut.push({
             id: guid(),
             title: clamp(rewritten),
             link: it.link || "",
             pubDate: it.pubDate || new Date().toUTCString(),
-            original: title
+            original: title,
           });
-        } catch (e) {
-          error("rewrite.item.fail", { title: title.slice(0, 80), error: e.message });
+        } catch (err) {
+          error("rewrite.item.fail", {
+            title: title.slice(0, 100),
+            error: err.message,
+          });
         }
       }
-    } catch (e) {
-      error("rewrite.feed.fail", { url, error: e.message });
+
+      info("rewrite.feed.done", {
+        url: feedUrl,
+        items: itemsOut.length,
+      });
+    } catch (err) {
+      error("rewrite.feed.fail", { url: feedUrl, error: err.message });
     }
   }
 
+  // ── Save to R2 and rebuild RSS
   await putJson(RSS_BUCKET, ITEMS_KEY, itemsOut);
   await rebuildRss(itemsOut);
   info("rewrite.pipeline.done", { count: itemsOut.length });
 
   return { ok: true, count: itemsOut.length };
-}
+                                                     }
