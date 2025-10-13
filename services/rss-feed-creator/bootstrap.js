@@ -1,47 +1,55 @@
-// RSS Feed Creator bootstrap – on-demand only (called by /api/rewrite)
+// services/rss-feed-creator/bootstrap.js
+// Ensures feeds.txt, urls.txt, and cursor.json exist in R2 from local /data sources.
+
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { getObject, putText, putJson } from "../shared/utils/r2-client.js";
+import { info, error } from "../shared/utils/logger.js";
 
-const log = (emoji, message, meta = null) => {
-  const entry = { emoji, time: new Date().toISOString(), message };
-  if (meta && Object.keys(meta).length) entry.meta = meta;
-  process.stdout.write(JSON.stringify(entry) + "\n");
-};
+const RSS_BUCKET = process.env.R2_BUCKET_RSS_FEEDS;
+const FEEDS_KEY = "feeds.txt";
+const URLS_KEY = "urls.txt";
+const CURSOR_KEY = "cursor.json";
 
-export default async function startFeedCreator() {
-  log("🧩", "Loading RSS Feed Creator");
+export async function ensureR2Bootstrap() {
+  try {
+    if (!RSS_BUCKET) throw new Error("R2_BUCKET_RSS_FEEDS is missing");
 
-  // Try to auto-detect the correct util file (self-healing)
-  const utilsDir = path.resolve("services/rss-feed-creator/utils");
-  const candidates = [
-    "feedGenerator.js",
-    "feed-builder.js",
-    "feedBuild.js",
-    "rssFeed.js",
-    "rss-generator.js"
-  ];
+    const baseDir = path.resolve("services/rss-feed-creator/data");
+    const feedsPath = path.join(baseDir, FEEDS_KEY);
+    const urlsPath = path.join(baseDir, URLS_KEY);
 
-  for (const file of candidates) {
-    const full = path.join(utilsDir, file);
-    if (fs.existsSync(full)) {
-      try {
-        const mod = await import(pathToFileURL(full).href);
-        const run = mod.default || mod.generate || mod.start || mod.run;
-        if (typeof run === "function") {
-          await run();
-          log("🧠", "Auto-resolved RSS util", { util: `utils/${file}` });
-          return;
-        } else {
-          log("⚠️", "Found util but no runnable export", { util: `utils/${file}` });
-        }
-      } catch (err) {
-        log("❌", "RSS util threw during execution", { util: `utils/${file}`, error: err?.message || String(err) });
-        return;
-      }
+    const [feedsExists, urlsExists, cursorExists] = await Promise.all([
+      getObject(RSS_BUCKET, FEEDS_KEY),
+      getObject(RSS_BUCKET, URLS_KEY),
+      getObject(RSS_BUCKET, CURSOR_KEY),
+    ]);
+
+    // feeds.txt
+    if (!feedsExists && fs.existsSync(feedsPath)) {
+      const feeds = fs.readFileSync(feedsPath, "utf-8");
+      await putText(RSS_BUCKET, FEEDS_KEY, feeds);
+      info("bootstrap.feeds.uploaded", { bucket: RSS_BUCKET, key: FEEDS_KEY });
     }
-  }
 
-  // If we reach here, no known util exists. Do not fail hard; just log.
-  log("⚠️", "No feed utility found, RSS Feed Creator idle");
-}
+    // urls.txt
+    if (!urlsExists && fs.existsSync(urlsPath)) {
+      const urls = fs.readFileSync(urlsPath, "utf-8");
+      await putText(RSS_BUCKET, URLS_KEY, urls);
+      info("bootstrap.urls.uploaded", { bucket: RSS_BUCKET, key: URLS_KEY });
+    }
+
+    // cursor.json
+    if (!cursorExists) {
+      const cursor = { feedIndex: 0, urlIndex: 0 };
+      await putJson(RSS_BUCKET, CURSOR_KEY, cursor);
+      info("bootstrap.cursor.created", { bucket: RSS_BUCKET, key: CURSOR_KEY });
+    }
+
+    info("bootstrap.complete", { bucket: RSS_BUCKET });
+    return true;
+  } catch (err) {
+    error("bootstrap.failed", { error: err.message });
+    throw err;
+  }
+                                   }
