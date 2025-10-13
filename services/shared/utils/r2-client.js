@@ -1,6 +1,5 @@
 // services/shared/utils/r2-client.js
-// Cloudflare R2 utility functions for AI Podcast Suite
-// Provides getObject, putJson, and low-level r2Client export for raw uploads
+// Cloudflare R2 utilities – used by AI Podcast Suite
 
 import {
   S3Client,
@@ -10,7 +9,7 @@ import {
 import { info, error } from "./logger.js";
 
 // ────────────────────────────────────────────────
-// Client setup
+// R2 Configuration
 // ────────────────────────────────────────────────
 const R2_ENDPOINT = process.env.R2_ENDPOINT || "https://<your-account-id>.r2.cloudflarestorage.com";
 const R2_ACCESS_KEY = process.env.R2_ACCESS_KEY_ID;
@@ -27,7 +26,7 @@ export const r2Client = new S3Client({
 });
 
 // ────────────────────────────────────────────────
-// Utilities
+// Utility Functions
 // ────────────────────────────────────────────────
 export async function getObject(bucket, key) {
   try {
@@ -36,7 +35,8 @@ export async function getObject(bucket, key) {
     const body = await res.Body?.transformToString?.("utf-8");
     return body || null;
   } catch (err) {
-    if (err.name !== "NoSuchKey") error("r2.getObject.fail", { bucket, key, error: err.message });
+    if (err.name !== "NoSuchKey")
+      error("r2.getObject.fail", { bucket, key, error: err.message });
     return null;
   }
 }
@@ -58,7 +58,6 @@ export async function putJson(bucket, key, data) {
   }
 }
 
-// Optional: raw text or XML writer
 export async function putText(bucket, key, text, contentType = "text/plain; charset=utf-8") {
   try {
     const cmd = new PutObjectCommand({
@@ -73,6 +72,4 @@ export async function putText(bucket, key, text, contentType = "text/plain; char
     error("r2.putText.fail", { bucket, key, error: err.message });
     throw err;
   }
-}
-
-export { r2Client }; // ✅ this line ensures your import works
+    }
