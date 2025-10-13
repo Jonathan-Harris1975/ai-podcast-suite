@@ -1,8 +1,12 @@
 // /services/rss-feed-creator/utils/models.js
 // 🧠 OpenRouter Model Orchestration (RSS Feed Creator)
 // Version: 2025-10-13
-
-import { callOpenRouterModel } from "../../shared/utils/ai-service.js";
+- import { callOpenRouter } from '/app/services/shared/utils/ai-service.js';
+- import { AI_MODELS, OPENROUTER_BASE_URL } from '/app/services/shared/utils/ai-config.js';
+- import { log } from '/app/services/shared/utils/logger.js';
++ import { callOpenRouter } from '../../shared/utils/ai-service.js';
++ import { AI_MODELS, OPENROUTER_BASE_URL } from '../../shared/utils/ai-config.js';
++ import { log } from '../../shared/utils/logger.js';
 import { RSS_PROMPTS } from "./rss-prompts.js";
 
 /**
