@@ -3,20 +3,22 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import Parser from "rss-parser";
 import { RSS_PROMPTS } from "./utils/rss-prompts.js";
+
 // Use Node's global fetch (no node-fetch)
 const parser = new Parser();
 
-// R2 + helpers
-- import { getObject, putJson, putText } from '/app/shared/utils/r2-client.js';
-+ import { getObject, putJson, putText } from '../shared/utils/r2-client.js';
+// R2 + helpers - Fixed import paths
+import { getObject, putJson, putText } from '../shared/utils/r2-client.js';
+import { callOpenRouterModel } from './utils/models.js';
 
-- import { callOpenRouterModel } from '/app/services/rss-feed-creator/utils/models.js';
-+ import { callOpenRouterModel } from './utils/models.js';
+// Remove duplicate import - already imported RSS_PROMPTS above
+// import { buildRssSummaryPrompt } from './utils/rss-prompts.js';
 
-- import { buildRssSummaryPrompt } from '/app/services/rss-feed-creator/utils/rss-prompts.js';
-+ import { buildRssSummaryPrompt } from './utils/rss-prompts.js';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function safeLog(level, message, meta) {
   const entry = { time: new Date().toISOString(), level, message };
@@ -62,7 +64,7 @@ function clampRewrite(s) {
 }
 
 function guid() {
-  return "RSS-" + Math.random().toString(36).slice(2, 8);
+  return "RSS-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
 }
 
 function wrapIndex(start, count, arr) {
@@ -75,27 +77,40 @@ function wrapIndex(start, count, arr) {
 }
 
 async function ensureR2Bootstrap() {
-  const baseDir   = path.resolve("services/rss-feed-creator/data");
+  // Fixed path resolution to be more reliable
+  const baseDir = path.resolve(__dirname, "data");
   const feedsPath = path.join(baseDir, "feeds.txt");
-  const urlsPath  = path.join(baseDir, "urls.txt");
+  const urlsPath = path.join(baseDir, "urls.txt");
 
   try {
     const [existingFeeds, existingUrls, existingCursor] = await Promise.all([
-      getObject(FEEDS_KEY),
-      getObject(URLS_KEY),
-      getObject(CURSOR_KEY),
+      getObject(FEEDS_KEY).catch(() => null),
+      getObject(URLS_KEY).catch(() => null),
+      getObject(CURSOR_KEY).catch(() => null),
     ]);
 
-    if (!existingFeeds && fs.existsSync(feedsPath)) {
-      const localFeeds = fs.readFileSync(feedsPath, "utf-8");
-      await putText(FEEDS_KEY, localFeeds);
-      safeLog("info", "🪄 Bootstrap: Uploaded local feeds.txt → R2");
+    if (!existingFeeds) {
+      try {
+        if (fs.existsSync(feedsPath)) {
+          const localFeeds = fs.readFileSync(feedsPath, "utf-8");
+          await putText(FEEDS_KEY, localFeeds);
+          safeLog("info", "🪄 Bootstrap: Uploaded local feeds.txt → R2");
+        }
+      } catch (err) {
+        safeLog("warn", "Could not bootstrap feeds.txt", { error: err.message });
+      }
     }
 
-    if (!existingUrls && fs.existsSync(urlsPath)) {
-      const localUrls = fs.readFileSync(urlsPath, "utf-8");
-      await putText(URLS_KEY, localUrls);
-      safeLog("info", "🪄 Bootstrap: Uploaded local urls.txt → R2");
+    if (!existingUrls) {
+      try {
+        if (fs.existsSync(urlsPath)) {
+          const localUrls = fs.readFileSync(urlsPath, "utf-8");
+          await putText(URLS_KEY, localUrls);
+          safeLog("info", "🪄 Bootstrap: Uploaded local urls.txt → R2");
+        }
+      } catch (err) {
+        safeLog("warn", "Could not bootstrap urls.txt", { error: err.message });
+      }
     }
 
     if (!existingCursor) {
@@ -108,6 +123,41 @@ async function ensureR2Bootstrap() {
   }
 }
 
+async function rebuildRss(items) {
+  // Fixed: Added missing rebuildRss function implementation
+  if (!items || items.length === 0) {
+    safeLog("warn", "No items to rebuild RSS feed");
+    return;
+  }
+
+  try {
+    const rssContent = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Rewritten RSS Feed</title>
+  <description>AI-rewritten news summaries</description>
+  <link>https://example.com/rss</link>
+  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+  ${items.map(item => `
+    <item>
+      <title><![CDATA[${item.title}]]></title>
+      <link>${item.link}</link>
+      <guid>${item.id}</guid>
+      <pubDate>${item.pubDate}</pubDate>
+      <description><![CDATA[${item.title}]]></description>
+    </item>
+  `).join('')}
+</channel>
+</rss>`;
+
+    await putText("rss.xml", rssContent);
+    safeLog("info", "✅ RSS feed rebuilt", { items: items.length });
+  } catch (err) {
+    safeLog("error", "❌ Failed to rebuild RSS", { error: err.message });
+    throw err;
+  }
+}
+
 // PUBLIC API
 export async function runRewritePipeline() {
   safeLog("info", "🚀 Starting rewrite pipeline");
@@ -116,9 +166,9 @@ export async function runRewritePipeline() {
     await ensureR2Bootstrap();
 
     const [feedsText, urlsText, cursorRaw] = await Promise.all([
-      getObject(FEEDS_KEY),
-      getObject(URLS_KEY),
-      getObject(CURSOR_KEY),
+      getObject(FEEDS_KEY).catch(() => ""),
+      getObject(URLS_KEY).catch(() => ""),
+      getObject(CURSOR_KEY).catch(() => null),
     ]);
 
     const feeds  = parseList(feedsText);
@@ -126,7 +176,8 @@ export async function runRewritePipeline() {
     const cursor = cursorRaw ? JSON.parse(cursorRaw) : { feedIndex: 0, urlIndex: 0 };
 
     if (feeds.length === 0 && urls.length === 0) {
-      throw new Error("feeds.txt and urls.txt are empty or missing");
+      safeLog("warn", "feeds.txt and urls.txt are empty or missing");
+      return { ok: true, count: 0, reason: "No feeds or URLs to process" };
     }
 
     const feedsSlice = wrapIndex(cursor.feedIndex, FEEDS_PER_RUN, feeds);
@@ -135,19 +186,38 @@ export async function runRewritePipeline() {
     safeLog("info", "📡 Selection", {
       feedsSelected: feedsSlice.length,
       urlsSelected: urlsSlice.length,
+      totalFeeds: feeds.length,
+      totalUrls: urls.length
     });
 
     // Fetch + parse feeds
     const fetchedFeeds = [];
     for (const feedUrl of feedsSlice) {
       try {
-        const resp = await fetch(feedUrl, { method: "GET" });
-        const xml  = await resp.text();
+        const resp = await fetch(feedUrl, { 
+          method: "GET",
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; RSS-Rewriter/1.0)'
+          },
+          timeout: 10000
+        });
+        
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        
+        const xml = await resp.text();
         const parsed = await parser.parseString(xml);
         fetchedFeeds.push(parsed);
-        safeLog("info", "✅ Parsed feed", { url: feedUrl, items: (parsed.items || []).length });
+        safeLog("info", "✅ Parsed feed", { 
+          url: feedUrl, 
+          items: (parsed.items || []).length 
+        });
       } catch (err) {
-        safeLog("error", "❌ Failed to fetch/parse feed", { url: feedUrl, error: err.message });
+        safeLog("error", "❌ Failed to fetch/parse feed", { 
+          url: feedUrl, 
+          error: err.message 
+        });
       }
     }
 
@@ -157,7 +227,11 @@ export async function runRewritePipeline() {
       for (const item of items) {
         const title = item.title || "(untitled)";
         const snippet = item.contentSnippet || item.content || "";
-         const prompt = RSS_PROMPTS.newsletterQuality({ title, snippet });
+        
+        // Fixed: Use proper prompt construction
+        const prompt = RSS_PROMPTS.newsletterQuality ? 
+          RSS_PROMPTS.newsletterQuality({ title, snippet }) : 
+          `Rewrite this news item concisely: ${title} - ${snippet.substring(0, 200)}`;
 
         try {
           const modelResp = await callOpenRouterModel(prompt);
@@ -169,33 +243,51 @@ export async function runRewritePipeline() {
             pubDate: item.pubDate || new Date().toUTCString(),
             original: title,
           });
-          safeLog("info", "🧠 Rewrote item", { title: title.slice(0, 80) });
+          safeLog("info", "🧠 Rewrote item", { 
+            original: title.slice(0, 80),
+            rewritten: rewritten.slice(0, 80)
+          });
         } catch (err) {
-          safeLog("error", "❌ Rewrite failed", { title: title.slice(0, 80), error: err.message });
+          safeLog("error", "❌ Rewrite failed", { 
+            title: title.slice(0, 80), 
+            error: err.message 
+          });
         }
       }
     }
 
-    const nextCursor = {
-      feedIndex: (cursor.feedIndex + FEEDS_PER_RUN) % (feeds.length || 1),
-      urlIndex:  (cursor.urlIndex  + URLS_PER_RUN)  % (urls.length  || 1),
-    };
-    await putJson(CURSOR_KEY, nextCursor);
-    safeLog("info", "🧭 Cursor updated", { nextCursor });
+    // Update cursor only if we have items to process
+    if (feeds.length > 0 || urls.length > 0) {
+      const nextCursor = {
+        feedIndex: feeds.length > 0 ? (cursor.feedIndex + FEEDS_PER_RUN) % feeds.length : 0,
+        urlIndex: urls.length > 0 ? (cursor.urlIndex + URLS_PER_RUN) % urls.length : 0,
+      };
+      await putJson(CURSOR_KEY, nextCursor);
+      safeLog("info", "🧭 Cursor updated", { nextCursor });
+    }
 
-    await putJson(ITEMS_KEY, rewrittenItems);
-    safeLog("info", "💾 Saved rewritten items", { count: rewrittenItems.length, key: ITEMS_KEY });
+    if (rewrittenItems.length > 0) {
+      await putJson(ITEMS_KEY, rewrittenItems);
+      safeLog("info", "💾 Saved rewritten items", { 
+        count: rewrittenItems.length, 
+        key: ITEMS_KEY 
+      });
 
-    await rebuildRss(rewrittenItems);
-    safeLog("info", "📢 RSS feed rebuilt and uploaded successfully");
+      await rebuildRss(rewrittenItems);
+      safeLog("info", "📢 RSS feed rebuilt and uploaded successfully");
+    } else {
+      safeLog("info", "💤 No items rewritten, skipping RSS rebuild");
+    }
 
     safeLog("info", "🎯 Rewrite pipeline completed successfully");
     return { ok: true, count: rewrittenItems.length };
   } catch (err) {
-    safeLog("error", "❌ runRewritePipeline failed", { error: err?.message || String(err) });
+    safeLog("error", "❌ runRewritePipeline failed", { 
+      error: err?.message || String(err) 
+    });
     if (err?.stack && (process.env.NODE_ENV || "").toLowerCase() === "development") {
       safeLog("error", "stack", { stack: err.stack });
     }
     throw err;
   }
-  }
+            }
