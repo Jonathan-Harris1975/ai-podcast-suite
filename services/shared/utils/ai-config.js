@@ -5,7 +5,7 @@ const DEFAULT_MODELS = [
     "openai/gpt-4o-mini",
   "anthropic/claude-3.5-sonnet",
     "deepseek/deepseek-chat"
-  "google/gemini-1.5-flash-8b",
+  "google/gemini-2.0-flash-001",
   "meta-llama/llama-3.1-8b-instruct"
 ];
 
