@@ -1,7 +1,7 @@
 // services/rss-feed-creator/build-rss.js
-// Builds valid RSS 2.0 XML with proper formatting and clean rewritten text.
+// Builds valid RSS 2.0 XML with proper formatting and uploads as text/xml
 
-import { putJson } from "../shared/utils/r2-client.js"; // ✅ correct export
+import { putObject } from "../shared/utils/r2-client.js"; // ✅ ensures text upload
 import { info, error } from "../shared/utils/logger.js";
 
 const RSS_BUCKET = process.env.R2_BUCKET_RSS_FEEDS;
@@ -57,8 +57,8 @@ ${rssItems}
   </channel>
 </rss>`;
 
-    // ✅ Use putJson to upload the XML string as plain text to R2
-    await putJson(RSS_BUCKET, "feed.xml", xml);
+    // ✅ Upload to R2 as plain XML
+    await putObject(RSS_BUCKET, "feed.xml", xml, "application/rss+xml");
 
     info("rss.build.success", {
       bucket: RSS_BUCKET,
