@@ -1,21 +1,22 @@
-import express from "express";
+// routes/rewrite.js
+import { Router } from "express";
 import { runRewritePipeline } from "../services/rss-feed-creator/rewrite-pipeline.js";
-import { log } from "../services/shared/utils/logger.js";
+import { info, error } from "../services/shared/utils/logger.js";
 
-const router = express.Router();
+const router = Router();
 
 router.get("/", (req, res) => {
-  res.status(200).json({ route: "rewrite", ok: true });
+  return res.status(200).json({ status: "ok", route: "rewrite" });
 });
 
 router.post("/run", async (req, res) => {
-  log("rewrite: POST /run");
+  info("rewrite: POST /run");
   try {
     const out = await runRewritePipeline();
-    res.status(200).json({ ok: true, ...out });
+    return res.status(200).json({ ok: true, ...out });
   } catch (err) {
-    log("rewrite: pipeline failed", { error: err.message });
-    res.status(500).json({ ok: false, error: err.message });
+    error("rewrite: pipeline failed", { error: err.message });
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
