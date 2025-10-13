@@ -1,16 +1,14 @@
 // services/rss-feed-creator/rewrite-pipeline.js
-// AI Podcast Suite – RSS Feed Rewrite Pipeline (2025-10-13)
-// Auto-bootstraps feeds from /data → R2, rewrites items using OpenRouter models,
-// and generates branded Short.io links.
+// AI Podcast Suite – RSS Feed Rewrite Pipeline (with feed limit)
+// Rewrites RSS feeds using OpenRouter models and uploads rewritten feed to R2
 
 import fetch from "node-fetch";
 import Parser from "rss-parser";
 import { getObject, putJson } from "../shared/utils/r2-client.js";
-import { info, warn, error } from "../shared/utils/logger.js";
+import { info, error } from "../shared/utils/logger.js";
 import { rewriteItem } from "./utils/models.js";
 import { rebuildRss } from "./build-rss.js";
 import { ensureR2Bootstrap } from "./bootstrap.js";
-import { createShortLink } from "./utils/shortio.js";
 
 const parser = new Parser();
 
@@ -21,6 +19,7 @@ const ITEMS_KEY = process.env.REWRITTEN_ITEMS_KEY || "items.json";
 const FEEDS_LIST_KEY = process.env.FEEDS_LIST_KEY || "feeds.txt";
 const RSS_BUCKET = process.env.R2_BUCKET_RSS_FEEDS;
 const MAX_ITEMS_PER_FEED = parseInt(process.env.MAX_ITEMS_PER_FEED || "3", 10);
+const MAX_FEEDS_PER_RUN = parseInt(process.env.MAX_FEEDS_PER_RUN || "12", 10); // ✅ New hard limit
 
 // ────────────────────────────────────────────────
 // Helpers
@@ -66,14 +65,23 @@ export async function runRewritePipeline() {
   if (!feedsTxt)
     throw new Error(`feeds.txt not found in bucket ${RSS_BUCKET}`);
 
-  const feeds = parseList(feedsTxt);
+  let feeds = parseList(feedsTxt);
+
   if (!feeds.length) throw new Error("feeds.txt is empty – no feeds defined");
 
-  const allItems = [];
+  // ✅ Enforce max feed limit
+  if (feeds.length > MAX_FEEDS_PER_RUN) {
+    info("rewrite.pipeline.limit", {
+      total: feeds.length,
+      limitedTo: MAX_FEEDS_PER_RUN,
+    });
+    feeds = feeds.slice(0, MAX_FEEDS_PER_RUN);
+  }
 
-  // ── Process each feed independently
+  const itemsOut = [];
+
+  // ── Process each feed
   for (const feedUrl of feeds) {
-    const feedItems = [];
     try {
       const resp = await fetch(feedUrl);
       if (!resp.ok)
@@ -85,27 +93,17 @@ export async function runRewritePipeline() {
       for (const it of items) {
         const title = it.title || "(untitled)";
         const summary = it.contentSnippet || it.content || "";
-
         try {
-          // ✨ Rewrite using OpenRouter model
           const rewritten = await rewriteItem(title, summary);
-
-          // 🔗 Branded Short.io link for the original item
-          const shortLink = await createShortLink(it.link || "");
-
-          const rewrittenItem = {
+          itemsOut.push({
             id: guid(),
             title: clamp(rewritten),
-            link: shortLink,
+            link: it.link || "",
             pubDate: it.pubDate || new Date().toUTCString(),
             original: title,
-          };
-
-          feedItems.push(rewrittenItem);
-          allItems.push(rewrittenItem);
+          });
         } catch (err) {
           error("rewrite.item.fail", {
-            feed: feedUrl,
             title: title.slice(0, 100),
             error: err.message,
           });
@@ -114,7 +112,7 @@ export async function runRewritePipeline() {
 
       info("rewrite.feed.done", {
         url: feedUrl,
-        items: feedItems.length,
+        items: itemsOut.length,
       });
     } catch (err) {
       error("rewrite.feed.fail", { url: feedUrl, error: err.message });
@@ -122,13 +120,9 @@ export async function runRewritePipeline() {
   }
 
   // ── Save to R2 and rebuild RSS
-  try {
-    await putJson(RSS_BUCKET, ITEMS_KEY, allItems);
-    await rebuildRss(allItems);
-    info("rewrite.pipeline.done", { count: allItems.length });
-  } catch (err) {
-    error("rewrite.pipeline.writefail", { error: err.message });
-  }
+  await putJson(RSS_BUCKET, ITEMS_KEY, itemsOut);
+  await rebuildRss(itemsOut);
+  info("rewrite.pipeline.done", { count: itemsOut.length });
 
-  return { ok: true, count: allItems.length };
-}
+  return { ok: true, count: itemsOut.length };
+          }
