@@ -6,8 +6,8 @@ Title: ${title}
 Summary: ${summary}
 
 Constraints:
-- 200–400 characters total
-- Factual and neutral tone (British English)
+- 300–600 characters total
+- Factual and neutral tone (British English) with a Gen-x feel 
 - No marketing, newsletter CTAs, emojis, or hashtags
 - No links or “read more”
 - One concise paragraph`;
