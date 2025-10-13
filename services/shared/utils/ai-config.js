@@ -2,12 +2,10 @@ export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 export const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 
 const DEFAULT_MODELS = [
-  "openrouter/auto",
-  "openai/gpt-4o-mini",
+    "openai/gpt-4o-mini",
   "anthropic/claude-3.5-sonnet",
   "google/gemini-1.5-flash-8b",
-  "meta-llama/llama-3.1-8b-instruct",
-  "mistralai/mistral-small-latest"
+  "meta-llama/llama-3.1-8b-instruct"
 ];
 
 export const MODEL_ORDER = (process.env.OPENROUTER_MODELS || "")
