@@ -1,69 +1,37 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../shared/utils/r2-client.js";
-// utils/ai-service.js
-import { OpenAI } from 'openai';
-import { aiConfig } from './ai-config.js';
+import fetch from "node-fetch";
+import { OPENROUTER_BASE_URL, OPENROUTER_HEADERS, MODELS } from "./ai-config.js";
+import { log } from "./logger.js";
 
-/**
- * Makes a resilient API call to OpenRouter, trying a sequence of models
- * with their corresponding API keys.
- *
- * @param {string} routeName - The name of the route (e.g., 'intro', 'compose').
- * @param {Array<object>} messages - The array of messages for the chat completion.
- * @returns {Promise<string>} - The content of the AI's response.
- * @throws {Error} - If all models in the sequence fail.
- */
-export async function resilientRequest(routeName, messages) {
-  const modelSequence = aiConfig.routeModels[routeName];
-  if (!modelSequence) {
-    throw new Error(`No model route defined for: ${routeName}`);
-  }
-
-  let lastError = null;
-
-  // Iterate through the defined model sequence (e.g., ['chatgpt', 'deepseek', 'meta'])
-  for (const modelKey of modelSequence) {
-    const modelConfig = aiConfig.models[modelKey];
-
-    // Validate that the model and its API key are configured
-    if (!modelConfig || !modelConfig.name) {
-      console.warn(`⚠️ Model key '${modelKey}' is not fully configured in ai-config. Skipping.`);
-      continue;
-    }
-    if (!modelConfig.apiKey) {
-      console.warn(`⚠️ API key for model '${modelKey}' is not set. Skipping.`);
-      continue;
-    }
-
+export async function callOpenRouterModel(prompt, { temperature = 0.35, max_tokens = 240 } = {}) {
+  let lastErr = null;
+  for (const model of MODELS) {
     try {
-      // --- FIX: Initialize the client *inside* the loop with the correct API key ---
-      const openai = new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: modelConfig.apiKey, // Use the specific key for this model
-        defaultHeaders: aiConfig.headers,
+      const resp = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: OPENROUTER_HEADERS,
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens,
+          messages: [
+            { role: "system", content: "You are a precise rewriting assistant. Keep outputs concise, factual, and 200–400 characters." },
+            { role: "user", content: prompt }
+          ]
+        })
       });
-      // --- END FIX ---
-
-      console.log(`🚀 Attempting API call with model: ${modelConfig.name}`);
-      const completion = await openai.chat.completions.create({
-        model: modelConfig.name,
-        messages: messages,
-        ...aiConfig.commonParams,
-      });
-
-      const content = completion.choices[0]?.message?.content;
-      if (!content || !content.trim()) {
-        throw new Error("Empty response from model.");
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`HTTP ${resp.status} ${resp.statusText} — ${text}`);
       }
-
-      console.log(`✅ Success with model: ${modelConfig.name}`);
-      return content; // Success, return the result immediately
-
-    } catch (error) {
-      console.error(`❌ Failed with model ${modelConfig.name}:`, error.message);
-      lastError = error; // Save the error and try the next model
+      const data = await resp.json();
+      const content = data?.choices?.[0]?.message?.content?.trim();
+      if (!content) throw new Error("Empty completion");
+      return content;
+    } catch (err) {
+      lastErr = err;
+      log("⚠️ OpenRouter model failed; falling back", { model, error: err.message });
+      continue;
     }
   }
-
-  // If all models in the sequence have failed
-  throw new Error(`All models failed for route '${routeName}'. Last error: ${lastError?.message}`);
+  throw lastErr || new Error("All OpenRouter models failed");
 }
