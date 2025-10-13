@@ -1,7 +1,7 @@
 // services/rss-feed-creator/build-rss.js
 // Builds valid RSS 2.0 XML with proper formatting and clean rewritten text.
 
-import { putObject } from "../shared/utils/r2-client.js";
+import { putJson } from "../shared/utils/r2-client.js"; // ✅ correct export
 import { info, error } from "../shared/utils/logger.js";
 
 const RSS_BUCKET = process.env.R2_BUCKET_RSS_FEEDS;
@@ -13,7 +13,7 @@ const FEED_LINK = PUBLIC_BASE || "https://rss-feeds.jonathan-harris.online";
 /** Clean and sanitize text for RSS XML */
 function sanitize(str = "") {
   return str
-    .replace(/\*\*(.*?)\*\*/g, "$1") // remove bold markdown
+    .replace(/\*\*(.*?)\*\*/g, "$1") // remove markdown bold
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -57,8 +57,8 @@ ${rssItems}
   </channel>
 </rss>`;
 
-    const key = "feed.xml";
-    await putObject(RSS_BUCKET, key, xml, "application/rss+xml");
+    // ✅ Use putJson to upload the XML string as plain text to R2
+    await putJson(RSS_BUCKET, "feed.xml", xml);
 
     info("rss.build.success", {
       bucket: RSS_BUCKET,
@@ -71,4 +71,4 @@ ${rssItems}
     error("rss.build.fail", { error: err.message });
     throw err;
   }
-      }
+}
