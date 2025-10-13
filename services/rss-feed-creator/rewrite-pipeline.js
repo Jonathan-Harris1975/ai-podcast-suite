@@ -9,9 +9,14 @@ import { RSS_PROMPTS } from "./utils/rss-prompts.js";
 const parser = new Parser();
 
 // R2 + helpers
-import { getObject, putJson, putText } from "../../shared/utils/r2-client.js";
-import { callOpenRouterModel } from "./utils/models.js";
-import { rebuildRss } from "./build-rss.js";
+- import { getObject, putJson, putText } from '/app/shared/utils/r2-client.js';
++ import { getObject, putJson, putText } from '../shared/utils/r2-client.js';
+
+- import { callOpenRouterModel } from '/app/services/rss-feed-creator/utils/models.js';
++ import { callOpenRouterModel } from './utils/models.js';
+
+- import { buildRssSummaryPrompt } from '/app/services/rss-feed-creator/utils/rss-prompts.js';
++ import { buildRssSummaryPrompt } from './utils/rss-prompts.js';
 
 function safeLog(level, message, meta) {
   const entry = { time: new Date().toISOString(), level, message };
