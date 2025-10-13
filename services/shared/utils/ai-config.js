@@ -4,6 +4,7 @@ export const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://o
 const DEFAULT_MODELS = [
     "openai/gpt-4o-mini",
   "anthropic/claude-3.5-sonnet",
+    "deepseek/deepseek-chat"
   "google/gemini-1.5-flash-8b",
   "meta-llama/llama-3.1-8b-instruct"
 ];
