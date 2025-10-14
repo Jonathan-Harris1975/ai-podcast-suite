@@ -1,83 +1,39 @@
-// services/rss-feed-creator/utils/shortio.js
-// Handles creation of branded short links for RSS feed items via Short.io API
-// Enhanced for production stability and detailed logging
-
+// Short.io helper for branded RSS feed links
 import fetch from "node-fetch";
-import { info, warn, error } from "../../shared/utils/logger.js";
+import { info, error } from "../../shared/utils/logger.js";
 
-const SHORTIO_API_KEY = process.env.SHORTIO_API_KEY;
-const SHORTIO_DOMAIN = process.env.SHORTIO_DOMAIN || "ai.jonathan-harris.online";
+export async function createShortLink({ originalURL, domain, apiKey }) {
+  if (!originalURL || !domain || !apiKey) return null;
 
-/**
- * Create a branded Short.io link for a given original URL.
- * Falls back to returning the original URL if an error occurs.
- * @param {string} originalUrl - The long URL to shorten.
- * @returns {Promise<string>} - The shortened URL or original if failed.
- */
-export async function createShortLink(originalUrl) {
-  if (!originalUrl || typeof originalUrl !== "string") {
-    warn("shortio.invalid.url", { provided: originalUrl });
-    return originalUrl;
-  }
-
-  if (!SHORTIO_API_KEY) {
-    warn("shortio.missing.key", {
-      hint: "Set SHORTIO_API_KEY in environment variables.",
-    });
-    return originalUrl;
-  }
+  const url = "https://api.short.io/links";
+  const body = {
+    domain,
+    originalURL,
+  };
 
   try {
-    const payload = {
-      originalURL: originalUrl,
-      domain: SHORTIO_DOMAIN,
-    };
-
-    const response = await fetch("https://api.short.io/links", {
+    const resp = await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": SHORTIO_API_KEY,
+        "Authorization": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
 
-    // Handle network and HTTP errors cleanly
-    if (!response.ok) {
-      const text = await response.text();
-      error("shortio.http.error", {
-        status: response.status,
-        message: response.statusText,
-        body: text.slice(0, 300),
-      });
-      return originalUrl;
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Short.io API error: ${resp.status} ${text}`);
     }
 
-    const data = await response.json();
-
-    if (!data.shortURL) {
-      warn("shortio.no.shorturl", {
-        domain: SHORTIO_DOMAIN,
-        url: originalUrl,
-        response: data,
-      });
-      return originalUrl;
+    const data = await resp.json();
+    const short = data?.shortURL || null;
+    if (short) {
+      info("shortio.success", { original: originalURL, short, domain });
     }
-
-    info("shortio.success", {
-      original: originalUrl,
-      short: data.shortURL,
-      domain: SHORTIO_DOMAIN,
-    });
-
-    return data.shortURL;
+    return short;
   } catch (err) {
-    // Catch fetch errors, timeouts, malformed JSON, etc.
-    error("shortio.exception", {
-      message: err.message,
-      stack: err.stack?.split("\n").slice(0, 3).join("; "),
-      url: originalUrl,
-    });
-    return originalUrl;
+    error("shortio.fail", { url: originalURL, error: err.message });
+    return null;
   }
-        }
+}
