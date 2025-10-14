@@ -2,7 +2,7 @@
 // AI Podcast Suite – RSS Feed Rewrite (Gen-X British Style)
 // Integrates with the global ai-service for resilient model routing.
 
-import { resilientRequest } from "../../../utils/ai-service.js"; // ✅ fixed relative path
+import { resilientRequest } from "../../../utils/ai-service.js";
 import { rewritePrompt, SYSTEM } from "./rss-prompts.js";
 
 /**
