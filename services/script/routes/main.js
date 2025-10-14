@@ -3,7 +3,7 @@ import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../sha
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { resilientRequest } from '../utils/ai-service.js';
+import { resilientRequest } from '../../shared/utils/ai-service.js';
 import { getMainPrompt } from '../utils/promptTemplates.js';
 import fetchFeeds from '../utils/fetchFeeds.js';
 import { storeAndTrigger } from '../utils/script-helper.js';
