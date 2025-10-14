@@ -4,7 +4,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { resilientRequest } from '../utils/ai-service.js';
+import { resilientRequest } from '../../shared/utils/ai-service.js';
 import splitPlainText from '../utils/splitPlainText.js';
 import editAndFormat from '../utils/editAndFormat.js';
 import uploadChunksToR2 from '../utils/uploadChunksToR2.js';
