@@ -1,16 +1,19 @@
 // services/rss-feed-creator/utils/models.js
-// Integrates with global ai-service for resilient LLM routing
+// AI Podcast Suite – RSS Feed Rewrite (Gen-X British Style)
+// Integrates with the global ai-service for resilient model routing.
 
-import { resilientRequest } from "../../../../utils/ai-service.js";
+import { resilientRequest } from "../../../utils/ai-service.js"; // ✅ fixed relative path
 import { rewritePrompt, SYSTEM } from "./rss-prompts.js";
 
 /**
- * Rewrite a single RSS item using the route-based LLM service.
+ * Rewrite a single RSS feed item using the route-based AI service.
  * @param {string} title - Original article title
  * @param {string} summary - Original article summary
  * @returns {Promise<string>} - Rewritten article text
  */
 export async function rewriteItem(title, summary) {
+  console.log("✅ ai-service import resolved, rewriting item:", title?.slice(0, 60));
+
   const prompt = rewritePrompt({ title, summary });
 
   const messages = [
@@ -18,6 +21,12 @@ export async function rewriteItem(title, summary) {
     { role: "user", content: prompt },
   ];
 
-  // 🔄 Route models dynamically via ai-service
-  return await resilientRequest("rssRewrite", messages);
+  try {
+    // 🔄 Route models dynamically via ai-service
+    const response = await resilientRequest("rssRewrite", messages);
+    return typeof response === "string" ? response.trim() : JSON.stringify(response);
+  } catch (err) {
+    console.error("❌ rewriteItem error:", err.message);
+    throw err;
+  }
 }
