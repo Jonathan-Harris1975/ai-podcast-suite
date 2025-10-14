@@ -36,15 +36,16 @@ export const aiConfig = {
 
   // Routing strategy remains the same, as it is logically sound.
   routeModels: {
-    intro: ["google", "chatgpt", "meta"],
-    main: ["google", "chatgpt", "deepseek"],
-    outro: ["google", "chatgpt", "meta"],
-    compose: ["deepseek", "grok", "google"],
-    podcastHelper: ["deepseek", "grok", "google"],
-  },
+  intro: ["google", "chatgpt", "meta"],
+  main: ["google", "chatgpt", "deepseek"],
+  outro: ["google", "chatgpt", "meta"],
+  compose: ["deepseek", "grok", "google"],
+  podcastHelper: ["deepseek", "grok", "google"],
+  rssRewrite: ["chatgpt", "google", "meta"], // ✅ NEW ROUTE
+},
 
   commonParams: {
-    temperature: 0.7,
+    temperature: 0.75,
     timeout: 45000, // Increased to 45s to handle any potential "cold starts" on the paid models.
   },
 
