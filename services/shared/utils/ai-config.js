@@ -1,24 +1,55 @@
-export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
-export const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+// utils/ai-config.js
 
-const DEFAULT_MODELS = [
-    "openai/gpt-4o-mini",
-  "anthropic/claude-4.5-sonnet",
-    "deepseek/deepseek-chat"
-  "google/gemini-2.0-flash-001",
-  "meta-llama/llama-4-scout"
-];
+/**
+ * Centralized configuration for OpenRouter models and routing.
+ * This setup uses standard, low-cost pay-as-you-go models for reliability
+ * and performance, avoiding the unreliable free tier.
+ */
+export const aiConfig = {
+  models: {
+    // Using the standard, reliable, and very low-cost Gemini Flash model.
+    google: {
+      name: "google/gemini-2.0-flash-001",
+      apiKey: process.env.OPENROUTER_API_KEY_GOOGLE,
+    },
+    // The standard GPT-4o Mini is a fast and powerful fallback.
+    chatgpt: {
+      name: "openai/gpt-4o-mini",
+      apiKey: process.env.OPENROUTER_API_KEY_CHATGPT,
+    },
+    // Standard Deepseek for reliable JSON generation.
+    deepseek: {
+      name: "deepseek/deepseek-chat",
+      apiKey: process.env.OPENROUTER_API_KEY_DEEPSEEK,
+    },
+    // Standard Grok for fast data processing.
+    grok: {
+      name: "anthropic/claude-sonnet-4",
+      apiKey: process.env.OPENROUTER_API_KEY_GROK,
+    },
+    // Standard Llama 3 is a fast and cheap final fallback.
+    meta: {
+      name: "meta-llama/llama-4-scout",
+      apiKey: process.env.OPENROUTER_API_KEY_META,
+    },
+  },
 
-export const MODEL_ORDER = (process.env.OPENROUTER_MODELS || "")
-  .split(",")
-  .map(s => s.trim())
-  .filter(Boolean);
+  // Routing strategy remains the same, as it is logically sound.
+  routeModels: {
+    intro: ["google", "chatgpt", "meta"],
+    main: ["google", "chatgpt", "deepseek"],
+    outro: ["google", "chatgpt", "meta"],
+    compose: ["deepseek", "grok", "google"],
+    podcastHelper: ["deepseek", "grok", "google"],
+  },
 
-export const MODELS = MODEL_ORDER.length ? MODEL_ORDER : DEFAULT_MODELS;
+  commonParams: {
+    temperature: 0.7,
+    timeout: 45000, // Increased to 45s to handle any potential "cold starts" on the paid models.
+  },
 
-export const OPENROUTER_HEADERS = {
-  "Authorization": OPENROUTER_API_KEY ? `Bearer ${OPENROUTER_API_KEY}` : "",
-  "Content-Type": "application/json",
-  "HTTP-Referer": process.env.SITE_URL || "https://ai-podcast-suite",
-  "X-Title": process.env.SITE_TITLE || "AI Podcast Suite",
+  headers: {
+    "HTTP-Referer": process.env.APP_URL || "http://localhost:3000",
+    "X-Title": process.env.APP_TITLE || "Podcast Script Generation",
+  }
 };

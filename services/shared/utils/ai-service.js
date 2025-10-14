@@ -1,137 +1,68 @@
-// services/shared/utils/ai-service.js
-// OpenRouter model selection + failover using your exact env names.
-// Node 22 ESM-ready.
-
-import { info, error } from "./logger.js";
-
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
-
-// Build the ordered list of models + keys from environment
-function getModelPlan() {
-  const plan = [];
-  const env = process.env;
-
-  // Anthropic
-  if (env.OPENROUTER_ANTHROPIC && (env.OPENROUTER_API_KEY || env.OPENROUTER_API_KEY_ANTHROPIC)) {
-    plan.push({
-      model: env.OPENROUTER_ANTHROPIC,
-      apiKey: env.OPENROUTER_API_KEY_ANTHROPIC || env.OPENROUTER_API_KEY,
-      hint: "anthropic",
-    });
-  }
-
-  // OpenAI (ChatGPT)
-  if (env.OPENROUTER_CHATGPT && (env.OPENROUTER_API_KEY_CHATGPT || env.OPENROUTER_API_KEY)) {
-    plan.push({
-      model: env.OPENROUTER_CHATGPT,
-      apiKey: env.OPENROUTER_API_KEY_CHATGPT || env.OPENROUTER_API_KEY,
-      hint: "chatgpt",
-    });
-  }
-
-  // DeepSeek
-  if (env.OPENROUTER_DEEPSEEK && (env.OPENROUTER_API_KEY_DEEPSEEK || env.OPENROUTER_API_KEY)) {
-    plan.push({
-      model: env.OPENROUTER_DEEPSEEK,
-      apiKey: env.OPENROUTER_API_KEY_DEEPSEEK || env.OPENROUTER_API_KEY,
-      hint: "deepseek",
-    });
-  }
-
-  // Google (Gemini)
-  if (env.OPENROUTER_KEY_GOOGLE && (env.OPENROUTER_API_KEY_GOOGLE || env.OPENROUTER_API_KEY)) {
-    plan.push({
-      model: env.OPENROUTER_KEY_GOOGLE,
-      apiKey: env.OPENROUTER_API_KEY_GOOGLE || env.OPENROUTER_API_KEY,
-      hint: "google",
-    });
-  }
-
-  // xAI (Grok)
-  if (env.OPENROUTER_GROK && (env.OPENROUTER_API_KEY_GROK || env.OPENROUTER_API_KEY)) {
-    plan.push({
-      model: env.OPENROUTER_GROK,
-      apiKey: env.OPENROUTER_API_KEY_GROK || env.OPENROUTER_API_KEY,
-      hint: "grok",
-    });
-  }
-
-  // Meta (Llama)
-  if (env.OPENROUTER_KEY_META && (env.OPENROUTER_API_KEY_META || env.OPENROUTER_API_KEY)) {
-    plan.push({
-      model: env.OPENROUTER_KEY_META,
-      apiKey: env.OPENROUTER_API_KEY_META || env.OPENROUTER_API_KEY,
-      hint: "meta",
-    });
-  }
-
-  // Fallback
-  if (env.OPENROUTER_DEFAULT_MODEL && env.OPENROUTER_API_KEY) {
-    plan.push({
-      model: env.OPENROUTER_DEFAULT_MODEL,
-      apiKey: env.OPENROUTER_API_KEY,
-      hint: "default",
-    });
-  }
-
-  return plan;
-}
-
-// Call OpenRouter once
-async function callOnce({ model, apiKey }, prompt, system = "You are a helpful rewriting assistant.") {
-  const body = {
-    model,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: prompt },
-    ],
-    temperature: 0.7,
-    max_tokens: 500,
-  };
-
-  const resp = await fetch(OPENROUTER_BASE_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-      "HTTP-Referer": process.env.OPENROUTER_REFERRER || "https://example.com",
-      "X-Title": process.env.OPENROUTER_TITLE || "AI Podcast Suite",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`HTTP ${resp.status} ${resp.statusText} – ${text.slice(0, 200)}`);
-  }
-
-  const data = await resp.json();
-  const out = data?.choices?.[0]?.message?.content;
-  if (!out || typeof out !== "string") {
-    throw new Error("Empty or invalid OpenRouter response");
-  }
-
-  return out.trim();
-}
+// utils/ai-service.js
+import { OpenAI } from 'openai';
+import { aiConfig } from './ai-config.js';
 
 /**
- * callOpenRouterModel(prompt, system?)
- * Tries all configured models in order; logs only failures, returns on first success.
+ * Makes a resilient API call to OpenRouter, trying a sequence of models
+ * with their corresponding API keys.
+ *
+ * @param {string} routeName - The name of the route (e.g., 'intro', 'compose').
+ * @param {Array<object>} messages - The array of messages for the chat completion.
+ * @returns {Promise<string>} - The content of the AI's response.
+ * @throws {Error} - If all models in the sequence fail.
  */
-export async function callOpenRouterModel(prompt, system) {
-  const plan = getModelPlan();
-  if (!plan.length) throw new Error("No OpenRouter models configured in environment");
+export async function resilientRequest(routeName, messages) {
+  const modelSequence = aiConfig.routeModels[routeName];
+  if (!modelSequence) {
+    throw new Error(`No model route defined for: ${routeName}`);
+  }
 
-  for (const step of plan) {
+  let lastError = null;
+
+  // Iterate through the defined model sequence (e.g., ['chatgpt', 'deepseek', 'meta'])
+  for (const modelKey of modelSequence) {
+    const modelConfig = aiConfig.models[modelKey];
+
+    // Validate that the model and its API key are configured
+    if (!modelConfig || !modelConfig.name) {
+      console.warn(`⚠️ Model key '${modelKey}' is not fully configured in ai-config. Skipping.`);
+      continue;
+    }
+    if (!modelConfig.apiKey) {
+      console.warn(`⚠️ API key for model '${modelKey}' is not set. Skipping.`);
+      continue;
+    }
+
     try {
-      info("ai.call", { model: step.model });
-      const out = await callOnce(step, prompt, system);
-      return out;
-    } catch (err) {
-      error("ai.fail", { model: step.model, error: err.message });
-      // try next model
+      // --- FIX: Initialize the client *inside* the loop with the correct API key ---
+      const openai = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: modelConfig.apiKey, // Use the specific key for this model
+        defaultHeaders: aiConfig.headers,
+      });
+      // --- END FIX ---
+
+      console.log(`🚀 Attempting API call with model: ${modelConfig.name}`);
+      const completion = await openai.chat.completions.create({
+        model: modelConfig.name,
+        messages: messages,
+        ...aiConfig.commonParams,
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content || !content.trim()) {
+        throw new Error("Empty response from model.");
+      }
+
+      console.log(`✅ Success with model: ${modelConfig.name}`);
+      return content; // Success, return the result immediately
+
+    } catch (error) {
+      console.error(`❌ Failed with model ${modelConfig.name}:`, error.message);
+      lastError = error; // Save the error and try the next model
     }
   }
 
-  throw new Error("All OpenRouter model calls failed");
-    }
+  // If all models in the sequence have failed
+  throw new Error(`All models failed for route '${routeName}'. Last error: ${lastError?.message}`);
+}
