@@ -1,7 +1,7 @@
 // services/rss-feed-creator/utils/models.js
 // Integrates with global ai-service for resilient LLM routing
 
-import { resilientRequest } from "../../../utils/ai-service.js";
+import { resilientRequest } from "../../../../utils/ai-service.js";
 import { rewritePrompt, SYSTEM } from "./rss-prompts.js";
 
 /**
