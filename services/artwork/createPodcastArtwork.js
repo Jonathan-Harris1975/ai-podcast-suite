@@ -3,9 +3,8 @@
 
 import { info, error } from "#shared/logger.js";
 import { uploadBuffer } from "#shared/r2-client.js";
-import { generateArtwork } from "./artwork.js";
-
-const R2_BUCKET_PODCAST = process.env.R2_BUCKET_PODCAST;
+import { generateArtwork } from "./utils/artwork.js";
+const R2_BUCKET_ART = process.env.R2_BUCKET_ART;
 
 /**
  * Creates podcast artwork, uploads to R2, and returns metadata.
