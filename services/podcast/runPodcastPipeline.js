@@ -1,11 +1,9 @@
 // services/podcast/runPodcastPipeline.js
-// Full orchestrator for AI Podcast Suite
-// ✅ Imports and paths fixed 2025-10-15
+// Uses tts/utils/orchestrator.js for full audio generation and merge flow
 
 import { info, error } from "../shared/utils/logger.js";
 import { generateScript } from "../script/generateScript.js";
-import { renderChunksToMp3 } from "../tts/renderChunksToMp3.js";
-import { mergeAudioChunks } from "../merge/mergeProcessor.js";
+import { runTTSOrchestrator } from "../tts/utils/orchestrator.js";
 import { createPodcastArtwork } from "../artwork/createPodcastArtwork.js";
 import { putJson } from "../shared/utils/r2-client.js";
 
@@ -23,40 +21,37 @@ export async function runPodcastPipeline(sessionId) {
     const scriptResult = await generateScript(sessionId);
     log("script.done", { chunks: scriptResult?.chunks?.length || 0 });
 
-    // ── 2️⃣ TTS
-    log("tts.start", {});
-    const ttsResult = await renderChunksToMp3({
+    // ── 2️⃣ TTS + MERGE handled inside orchestrator
+    log("tts.orchestrator.start", {});
+    const audioResult = await runTTSOrchestrator({
       sessionId,
       textChunks: scriptResult.chunks,
-      voiceConfig: { voice: "en-GB-Wavenet-D" },
+      voice: "en-GB-Wavenet-D",
     });
-    log("tts.done", { ok: ttsResult.ok, fail: ttsResult.fail });
+    log("tts.orchestrator.done", {
+      mergedUrl: audioResult.publicUrl,
+      total: audioResult.totalChunks,
+    });
 
-    // ── 3️⃣ MERGE
-    log("merge.start", {});
-    const mergeResult = await mergeAudioChunks({ sessionId, chunks: ttsResult.chunks });
-    log("merge.done", { mergedUrl: mergeResult.publicUrl });
-
-    // ── 4️⃣ ARTWORK
+    // ── 3️⃣ ARTWORK
     log("artwork.start", {});
     const artworkResult = await createPodcastArtwork({ sessionId });
     log("artwork.done", { imageKey: artworkResult.key });
 
-    // ── 5️⃣ META SAVE
+    // ── 4️⃣ META SAVE
     const duration = Math.round((Date.now() - started) / 1000);
     const meta = {
       sessionId,
       createdAt: new Date().toISOString(),
       duration,
-      mergedUrl: mergeResult.publicUrl,
+      mergedUrl: audioResult.publicUrl,
       artwork: artworkResult.publicUrl,
-      totalChunks: ttsResult.total,
+      totalChunks: audioResult.totalChunks,
       scriptChunks: scriptResult.chunks?.length,
     };
 
     await putJson(META_BUCKET, `${sessionId}/meta.json`, meta);
     log("meta.saved", { bucket: META_BUCKET });
-
     log("done", { duration });
 
     return { ok: true, sessionId, meta };
