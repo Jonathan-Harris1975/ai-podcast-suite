@@ -1,4 +1,5 @@
 // /scripts/startupCheck.mjs
+console.log("🚀 StartupCheck.mjs is executing inside Shiper container!");
 import { execSync, spawnSync } from "child_process";
 import fs from "fs";
 import os from "os";
