@@ -1,3 +1,4 @@
+// /services/tts/utils/ttsProcessor.js
 import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "#shared/r2-client.js";
 import fs from "fs";
 import os from "os";
@@ -6,6 +7,10 @@ import pLimit from "p-limit";
 import fetch from "node-fetch";
 import ffmpeg from "fluent-ffmpeg";
 import { log } from "../../../utils/logger.js";
+import { validateEnv } from "../../../shared/utils/envChecker.js";
+
+// Ensure required env is present
+validateEnv(["GEMINI_API_KEY"]);
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const TTS_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent";
@@ -63,9 +68,7 @@ async function convertPcmToMp3(pcmFile, mp3File) {
 }
 
 async function synthesizeChunk(text, outMp3, idx) {
-  if (!API_KEY) throw new Error("GEMINI_API_KEY not set");
-
-  // ✅ Fixed payload structure
+  // ✅ Properly structured payload
   const payload = {
     model: "gemini-2.5-flash-preview-tts",
     contents: [
@@ -77,9 +80,7 @@ async function synthesizeChunk(text, outMp3, idx) {
       responseModalities: ["AUDIO"],
       speechConfig: {
         voiceConfig: {
-          prebuiltVoiceConfig: {
-            voiceName: "Charon",
-          },
+          prebuiltVoiceConfig: { voiceName: "Charon" },
         },
       },
     },
@@ -88,10 +89,7 @@ async function synthesizeChunk(text, outMp3, idx) {
   const res = await rateLimited(() =>
     fetch(`${TTS_API_URL}?key=${API_KEY}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": API_KEY,
-      },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": API_KEY },
       body: JSON.stringify(payload),
     })
   );
@@ -101,11 +99,9 @@ async function synthesizeChunk(text, outMp3, idx) {
     log.error({ status: res.status, text: textResp }, "❌ TTS API error");
     throw new Error(`TTS HTTP ${res.status}`);
   }
-
   const data = JSON.parse(textResp);
   const inline = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
   if (!inline?.data) throw new Error("No audio data in TTS response");
-
   const pcm = Buffer.from(inline.data, "base64");
   const tmpPcm = path.join(os.tmpdir(), `tts-${Date.now()}-${idx}.pcm`);
   fs.writeFileSync(tmpPcm, pcm);
@@ -117,19 +113,24 @@ async function synthesizeChunk(text, outMp3, idx) {
 
 export async function processTTS(sessionId) {
   log.info({ sessionId }, "🎙 Starting TTS");
+
+  // This assumes you have a helper to list & fetch text chunk URLs
+  if (typeof getTextChunkUrls !== "function") {
+    throw new Error("getTextChunkUrls(sessionId) is not defined in this module's scope");
+  }
   const urls = await getTextChunkUrls(sessionId);
   if (!urls.length) throw new Error("No text chunks found");
 
+  // fetch and combine
   let combined = "";
   for (const u of urls) {
     const res = await fetch(u);
     if (res.ok) combined += (await res.text()) + "\n\n";
   }
-
   const chunks = chunkText(cleanText(combined));
   const limit = pLimit(CONFIG.maxConcurrent);
-  const outMp3s = [];
 
+  const outMp3s = [];
   await Promise.all(
     chunks.map((chunk, i) =>
       limit(async () => {
@@ -137,12 +138,7 @@ export async function processTTS(sessionId) {
         await synthesizeChunk(chunk, outMp3, i);
         const buf = fs.readFileSync(outMp3);
         const key = `${sessionId}/chunk-${i}.mp3`;
-        await uploadBuffer({
-          bucket: R2_BUCKETS.RAW,
-          key,
-          body: buf,
-          contentType: "audio/mpeg",
-        });
+        await uploadBuffer({ bucket: R2_BUCKETS.RAW, key, body: buf, contentType: "audio/mpeg" });
         outMp3s[i] = key;
       })
     )
@@ -151,4 +147,4 @@ export async function processTTS(sessionId) {
   const produced = outMp3s.filter(Boolean).length;
   log.info({ sessionId, produced }, "✅ TTS complete");
   return { produced, chunkKeys: outMp3s };
-    }
+}
