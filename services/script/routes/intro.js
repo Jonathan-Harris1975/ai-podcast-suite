@@ -43,8 +43,7 @@ router.post('/', async (req, res) => {
     await storeAndTrigger({
       sessionId,
       step: 'intro',
-      payload: { date, introPath },
-      nextUrl: process.env.HOOKDECK_MAIN_URL
+      payload: { date, introPath } }
     });
 
     res.json({

@@ -150,17 +150,6 @@ router.post('/', async (req, res) => {
         metaUrls
       }
     });
-
-    // Wake up downstream services
-    if (process.env.HOOKDECK_WAKEUP_URL) {
-      await fetch(process.env.HOOKDECK_WAKEUP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, metaUrls, transcriptUrl, chunkUrls })
-      });
-      console.log(`✅ Wakeup webhook triggered for session ${sessionId}`);
-    }
-
     res.json({
       sessionId,
       episodeNumber,

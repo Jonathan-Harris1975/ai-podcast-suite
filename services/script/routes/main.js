@@ -49,8 +49,7 @@ router.post('/', async (req, res) => {
     await storeAndTrigger({
       sessionId,
       step: 'main',
-      payload: { date, mainPath, articleCount: articleTexts.length },
-      nextUrl: process.env.HOOKDECK_OUTRO_URL
+      payload: { date, mainPath, articleCount: articleTexts.length } }
     });
 
     res.json({
