@@ -1,10 +1,10 @@
 // services/script/utils/models.js
-import { info } from "../../shared/utils/logger.js";
+import { info } from "#shared/logger.js";
 // We only depend on the *route* interface from the shared service:
 import {
   getModelForRoute,
   callOpenRouter,   // generic caller the shared service exposes
-} from "../../shared/utils/ai-service.js";
+} from "#shared/ai-service.js";
 
 // Helper: robust call with route look-up + minimal retries (local)
 async function callRoute(route, { system, prompt, maxTokens = 800, temperature = 0.3 }) {

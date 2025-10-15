@@ -1,7 +1,7 @@
 // services/script/utils/io.js
 import path from "node:path";
-import { putText, putJson } from "../../shared/utils/r2-client.js";
-import { info } from "../../shared/utils/logger.js";
+import { putText, putJson } from "#shared/r2-client.js";
+import { info } from "#shared/logger.js";
 
 const RAW_TEXT_BUCKET       = process.env.R2_BUCKET_RAW_TEXT;      // raw-text
 const CHUNKS_BUCKET         = process.env.R2_BUCKET_CHUNKS;        // podcast-chunks
