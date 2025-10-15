@@ -1,6 +1,6 @@
 // Short.io helper for branded RSS feed links
 import fetch from "node-fetch";
-import { info, error } from "../../shared/utils/logger.js";
+import { info, error } from "#shared/logger.js";
 
 export async function createShortLink({ originalURL, domain, apiKey }) {
   if (!originalURL || !domain || !apiKey) return null;
