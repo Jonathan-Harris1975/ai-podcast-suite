@@ -1,21 +1,22 @@
 // services/podcast/runPodcastPipeline.js
 // Full orchestrator for AI Podcast Suite
+// ✅ Imports and paths fixed 2025-10-15
 
 import { info, error } from "../shared/utils/logger.js";
-import { generateScript } from "../script/index.js";
-import { renderChunksToMp3 } from "../tts/index.js";
-import { mergeAudioChunks } from "../merge/index.js";
-import { createPodcastArtwork } from "../artwork/index.js";
+import { generateScript } from "../script/generateScript.js";
+import { renderChunksToMp3 } from "../tts/renderChunksToMp3.js";
+import { mergeAudioChunks } from "../merge/mergeProcessor.js";
+import { createPodcastArtwork } from "../artwork/createPodcastArtwork.js";
 import { putJson } from "../shared/utils/r2-client.js";
 
 const META_BUCKET = process.env.R2_BUCKET_META;
 
 export async function runPodcastPipeline(sessionId) {
-  const log = (stage, meta) => info(`podcast.${stage}`, meta);
   const started = Date.now();
+  const log = (stage, meta) => info(`podcast.${stage}`, { sessionId, ...meta });
 
   try {
-    log("start", { sessionId });
+    log("start", {});
 
     // ── 1️⃣ SCRIPT
     log("script.start", {});
@@ -27,7 +28,7 @@ export async function runPodcastPipeline(sessionId) {
     const ttsResult = await renderChunksToMp3({
       sessionId,
       textChunks: scriptResult.chunks,
-      voiceConfig: { voice: "en-GB-Wavenet-D" }
+      voiceConfig: { voice: "en-GB-Wavenet-D" },
     });
     log("tts.done", { ok: ttsResult.ok, fail: ttsResult.fail });
 
@@ -41,7 +42,7 @@ export async function runPodcastPipeline(sessionId) {
     const artworkResult = await createPodcastArtwork({ sessionId });
     log("artwork.done", { imageKey: artworkResult.key });
 
-    // ── 5️⃣ META
+    // ── 5️⃣ META SAVE
     const duration = Math.round((Date.now() - started) / 1000);
     const meta = {
       sessionId,
