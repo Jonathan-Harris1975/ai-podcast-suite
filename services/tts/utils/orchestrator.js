@@ -4,9 +4,7 @@ import { processTTS } from "./ttsProcessor.js";
 import { mergeChunks } from "./mergeprocessor.js";
 import { processEditing } from "./editingProcessor.js";
 import { processPodcast } from "./podcastProcessor.js";
-import { validateEnv } from "../services/env-checker.js";
-validateEnv();          // hard-stop if any env var is missing
-// single HeadBucket probe (no retries/ping)
+
 import logger from "./logger.js";
 
 /**
