@@ -2,11 +2,11 @@
 // AI Podcast Suite – Full Orchestrated Podcast Pipeline
 // Runs script (intro→main→outro→compose), TTS, artwork, and metadata save.
 
-import { info, error } from "../shared/utils/logger.js";
+import { info, error } from "#shared/logger.js";
 import { runScriptOrchestrator } from "../script/utils/orchestrator.js";
 import { runTTSOrchestrator } from "../tts/utils/orchestrator.js";
 import { createPodcastArtwork } from "../artwork/createPodcastArtwork.js";
-import { putJson } from "../shared/utils/r2-client.js";
+import { putJson } from "#shared/r2-client.js";
 
 const META_BUCKET = process.env.R2_BUCKET_META;
 
