@@ -4,7 +4,7 @@
 
 import express from "express";
 import { renderChunksToMp3 } from "./renderChunksToMp3.js"; // your internal Gemini logic
-import { info, error } from "../shared/utils/logger.js";
+import { info, error } from "#shared/logger.js";
 
 export const router = express.Router();
 
