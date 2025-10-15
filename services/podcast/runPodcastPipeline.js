@@ -4,7 +4,7 @@
 
 import { info, error } from "#shared/logger.js";
 import { runScriptOrchestrator } from "../script/utils/orchestrator.js";
-import { runTTSOrchestrator } from "../tts/utils/orchestrator.js";
+import { processPodcastPipeline } from "../tts/utils/orchestrator.js";
 import { createPodcastArtwork } from "../artwork/createPodcastArtwork.js";
 import { putJson } from "#shared/r2-client.js";
 
