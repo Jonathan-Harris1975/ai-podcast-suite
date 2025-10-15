@@ -1,6 +1,29 @@
+
 // /utils/logger.js
+const LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
+const envLevel = (process.env.LOG_LEVEL || "info").toLowerCase();
+const CURRENT = LEVELS[envLevel] ?? LEVELS.info;
+
+function fmt(data) {
+  try {
+    if (!data) return "";
+    return typeof data === "string" ? data : JSON.stringify(data);
+  } catch {
+    return String(data);
+  }
+}
+
 export const log = {
-  info: (msg, meta) => process.stdout.write(JSON.stringify({ level: "info", time: new Date().toISOString(), message: msg, ...(meta?{meta}: {}) }) + "\n"),
-  error: (msg, meta) => process.stdout.write(JSON.stringify({ level: "error", time: new Date().toISOString(), message: msg, ...(meta?{meta}: {}) }) + "\n"),
-  debug: (msg, meta) => process.stdout.write(JSON.stringify({ level: "debug", time: new Date().toISOString(), message: msg, ...(meta?{meta}: {}) }) + "\n"),
+  error: (data, msg = "") => {
+    if (CURRENT >= LEVELS.error) console.error("❌ ERROR:", msg, fmt(data));
+  },
+  warn: (data, msg = "") => {
+    if (CURRENT >= LEVELS.warn) console.warn("⚠️  WARN:", msg, fmt(data));
+  },
+  info: (data, msg = "") => {
+    if (CURRENT >= LEVELS.info) console.log("ℹ️  INFO:", msg, fmt(data));
+  },
+  debug: (data, msg = "") => {
+    if (CURRENT >= LEVELS.debug) console.log("🔍 DEBUG:", msg, fmt(data));
+  },
 };
