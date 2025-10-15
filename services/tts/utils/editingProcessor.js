@@ -2,10 +2,8 @@ import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../sha
 import path from "path";
 import os from "os";
 import { spawn } from "child_process";
-import { validateEnv } from "../services/env-checker.js";
-validateEnv();          // hard-stop if any env var is missing
-// single HeadBucket probe (no retries/ping)
-import logger from "./logger.js";
+
+import logger from "../shared/utils/logger.js";
 
 const tempDir = os.tmpdir();
 
