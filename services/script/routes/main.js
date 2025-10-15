@@ -1,9 +1,9 @@
-import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "../../shared/utils/r2-client.js";
+import {s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText} from "#shared/r2-client.js";
 // routes/main.js
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { resilientRequest } from '../../shared/utils/ai-service.js';
+import { resilientRequest } from "#shared/ai-service.js";
 import { getMainPrompt } from '../utils/promptTemplates.js';
 import fetchFeeds from '../utils/fetchFeeds.js';
 import { storeAndTrigger } from '../utils/script-helper.js';
