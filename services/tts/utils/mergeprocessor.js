@@ -4,10 +4,8 @@ import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
 import fetch from "node-fetch";
-import { validateEnv } from "../services/env-checker.js";
-validateEnv();          // hard-stop if any env var is missing
-// single HeadBucket probe (no retries/ping)
-import logger from "./logger.js";
+
+import logger from "../shared/utils/logger.js";
 
 const tempDir = "/tmp"; // Render ephemeral storage
 
