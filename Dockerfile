@@ -1,49 +1,26 @@
-# ────────────────────────────────────────────────
-# 🧠 AI Podcast Suite — Shiper Optimized Build
-# Zero TS assumptions, ESM validation, minimal layers
-# ────────────────────────────────────────────────
+# ============================================================
+# 🧠 AI Podcast Suite — Shiper Deployment Dockerfile
+# ============================================================
 
-# Base image
-FROM node:22-slim AS base
-ENV NODE_ENV=production
-ENV PORT=3000
+FROM node:22-alpine
 WORKDIR /app
 
-# ────────────────────────────────────────────────
-# 1️⃣ Install dependencies
-# ────────────────────────────────────────────────
+# Copy dependency manifests
 COPY package*.json ./
-RUN npm install --omit=dev && npm cache clean --force
 
-# ────────────────────────────────────────────────
-# 2️⃣ Copy source files
-# ────────────────────────────────────────────────
+# Install dependencies (Shiper uses cached layers for npm ci)
+RUN npm ci --omit=dev
+
+# Copy all source files
 COPY . .
 
-# Validate syntax of critical ESM entry points
-RUN node --check server.js || exit 1
-RUN node --check routes/rewrite.js || exit 1
-RUN node --check routes/rss.js || exit 1
-RUN node --check routes/podcast.js || exit 0
+# Make startup script executable
+RUN chmod +x ./scripts/startupCheck.mjs ./scripts/fix-logger-and-env-imports.mjs || true
 
-# ────────────────────────────────────────────────
-# 3️⃣ Runtime stage
-# ────────────────────────────────────────────────
-FROM node:22-slim AS runtime
-ENV NODE_ENV=production
-ENV PORT=3000
-WORKDIR /app
+# ============================================================
+# 🟢 ENTRYPOINT
+# ============================================================
+# Runs startup checks before starting the main server.
+# ============================================================
 
-# Copy built app
-COPY --from=base /app /app
-
-# Avoid Shiper’s TS detection by explicitly defining entry
-ENTRYPOINT ["node", "server.js"]
-
-EXPOSE 3000
-
-# ────────────────────────────────────────────────
-# ✅ Final CMD
-# ────────────────────────────────────────────────
-# No bash wrapper — faster cold start, no caching issues
-CMD []
+CMD [ "node", "./scripts/startupCheck.mjs" ]
