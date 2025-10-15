@@ -6,7 +6,7 @@ import path from "path";
 import { execFile } from "child_process";
 import ffmpegPath from "ffmpeg-static";
 import ffprobe from "ffprobe-static";
-import { log } from "../../../utils/logger.js";
+import { log } from "../shared/utils/logger.js";
 import { validateEnv } from "../services/env-checker.js";
 validateEnv();          // hard-stop if any env var is missing
 // single HeadBucket probe (no retries/ping)
