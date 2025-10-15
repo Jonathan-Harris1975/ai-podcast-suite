@@ -10,7 +10,7 @@ router.get("/", async (req, res) => {
   try {
     const { sessionId, metaUrls } = req.query;
 
-    // If Hookdeck just pings with no params → reply OK
+    // If downstream just pings with no params → reply OK
     if (!sessionId) {
       return res.json({ status: "ok", message: "Health check passed" });
     }
