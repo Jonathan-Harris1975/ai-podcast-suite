@@ -1,8 +1,8 @@
 // services/artwork/createPodcastArtwork.js
 // Wrapper for generateArtwork() that saves PNG to R2 and logs output.
 
-import { info, error } from "../shared/utils/logger.js";
-import { uploadBuffer } from "../shared/utils/r2-client.js";
+import { info, error } from "#shared/logger.js";
+import { uploadBuffer } from "#shared/r2-client.js";
 import { generateArtwork } from "./artwork.js";
 
 const R2_BUCKET_PODCAST = process.env.R2_BUCKET_PODCAST;
