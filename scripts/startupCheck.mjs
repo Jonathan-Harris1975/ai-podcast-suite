@@ -1,61 +1,59 @@
 // /scripts/startupCheck.mjs
-import { execSync } from "child_process";
+import { execSync, spawnSync } from "child_process";
 import fs from "fs";
 import os from "os";
+import process from "process";
 
-const run = (cmd, label) => {
+function step(label, fn) {
+  console.log(`\n🔹 [STEP] ${label}`);
+  const start = Date.now();
   try {
-    console.log(`🔹 ${label}...`);
-    execSync(cmd, { stdio: "inherit" });
-    console.log(`✅ ${label} complete.`);
+    fn();
+    console.log(`✅ [DONE] ${label} (${Date.now() - start} ms)`);
   } catch (err) {
-    console.error(`❌ ${label} failed:`);
-    console.error(err.message || err);
+    console.error(`❌ [FAIL] ${label} (${Date.now() - start} ms)`);
+    console.error(err.stack || err.message);
     process.exit(1);
   }
-};
-
-try {
-  console.log("=============================================");
-  console.log("🧠 AI Podcast Suite — Shiper Startup Routine");
-  console.log("=============================================");
-
-  // 🧩 Basic diagnostics
-  console.log(`🧩 Node.js version: ${process.version}`);
-  console.log(`📦 Module type: ${process.env.npm_package_type || "unknown"}`);
-  console.log(`📂 Working directory: ${process.cwd()}`);
-  console.log(`💾 Total memory: ${(os.totalmem() / 1024 / 1024 / 1024).toFixed(2)} GB`);
-  console.log(`💾 Free memory: ${(os.freemem() / 1024 / 1024 / 1024).toFixed(2)} GB`);
-  console.log(`🧭 CPU cores: ${os.cpus()?.length}`);
-  console.log("=============================================");
-
-  // Check critical directories
-  const requiredDirs = ["./utils", "./bootstrap", "./services"];
-  for (const dir of requiredDirs) {
-    if (fs.existsSync(dir)) {
-      console.log(`✅ Found ${dir}`);
-    } else {
-      console.error(`❌ Missing required directory: ${dir}`);
-      process.exit(1);
-    }
-  }
-
-  // 1️⃣ Fix imports
-  run("node ./scripts/fix-logger-and-env-imports.mjs", "Logger/env import codemod");
-
-  // 2️⃣ Validate environment
-  run("node -e \"import('./bootstrap/envBootstrap.js')\"", "Environment validation");
-
-  // 3️⃣ Route import preflight
-  console.log("🧩 Checking route imports...");
-  run("node -e \"import('./server.js').then(()=>console.log('✅ Routes imported successfully')).catch(e=>{console.error('❌ Route import failed:',e);process.exit(1);})\"", "Route preload");
-
-  // 4️⃣ Start server
-  console.log("🌍 Starting main server...");
-  run("node ./server.js", "Server startup");
-
-} catch (e) {
-  console.error("❌ Startup routine failed:");
-  console.error(e.message || e);
-  process.exit(1);
 }
+
+console.log("=============================================");
+console.log("🧠 AI Podcast Suite — Shiper Deep Diagnostic Startup");
+console.log("=============================================");
+console.log(`🧩 Node.js version: ${process.version}`);
+console.log(`📦 Module type: ${process.env.npm_package_type || "unknown"}`);
+console.log(`📂 CWD: ${process.cwd()}`);
+console.log(`💾 Mem total/free: ${(os.totalmem()/1e9).toFixed(2)} GB / ${(os.freemem()/1e9).toFixed(2)} GB`);
+console.log(`🧭 CPU cores: ${os.cpus()?.length}`);
+console.log("=============================================");
+
+step("Checking critical directories", () => {
+  for (const d of ["./utils", "./bootstrap", "./services"]) {
+    if (!fs.existsSync(d)) throw new Error(`Missing directory: ${d}`);
+  }
+});
+
+step("Running codemod", () => {
+  const res = spawnSync("node", ["./scripts/fix-logger-and-env-imports.mjs"], { stdio: "inherit" });
+  if (res.status !== 0) throw new Error("Codemod failed");
+});
+
+step("Environment validation", () => {
+  const res = spawnSync("node", ["-e", "import('./bootstrap/envBootstrap.js')"], { stdio: "inherit" });
+  if (res.status !== 0) throw new Error("envBootstrap failed");
+});
+
+step("Preloading routes", () => {
+  const res = spawnSync("node", ["-e",
+    "import('./server.js').then(()=>console.log('✅ Routes imported OK')).catch(e=>{console.error('❌ Route import failed:',e);process.exit(1);})"
+  ], { stdio: "inherit" });
+  if (res.status !== 0) throw new Error("Route preload failed");
+});
+
+step("Launching server.js", () => {
+  console.log("🌍 Starting main server with verbose logging...");
+  const res = spawnSync("node", ["--trace-uncaught", "--trace-warnings", "./server.js"], { stdio: "inherit" });
+  if (res.status !== 0) throw new Error(`Server exited with code ${res.status}`);
+});
+
+console.log("✅ All startup checks complete.");
