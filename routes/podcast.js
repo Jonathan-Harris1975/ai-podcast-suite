@@ -1,42 +1,49 @@
-// /routes/podcast.js — AI Podcast Suite (Final Stable 2025-10-11)
+// /routes/podcast.js — AI Podcast Suite (2025-10-15)
+// Triggers the full pipeline and logs progress to console.
+
 import express from "express";
-// When re-enabled, you can import your Gemini / TTS logic here, e.g.:
-// import { runPodcastPipeline } from "../services/podcast-engine/index.js";
+import { runPodcastPipeline } from "../services/podcast/runPodcastPipeline.js"; // central orchestrator
+import { info, error } from "../services/shared/utils/logger.js";
 
 const router = express.Router();
 
 /**
- * Handles both GET (status check) and POST (trigger podcast generation)
+ * Health + trigger endpoint
  */
 router.all("/", async (req, res) => {
   const isPost = req.method === "POST";
+  const sessionId = req.body?.sessionId || `TT-${Date.now()}`;
 
   if (!isPost) {
     return res.status(200).json({
-      status: "ok",
-      route: "podcast",
-      message: "Podcast route is active. Use POST to start TTS or episode generation.",
-      method: req.method,
+      ok: true,
+      service: "podcast",
+      message: "Podcast route active. POST to trigger a new episode.",
+      sessionId,
     });
   }
 
   try {
-    // Placeholder until Gemini 2.5 TTS pipeline is active
-    // const result = await runPodcastPipeline();
-    const result = { note: "Gemini 2.5 TTS pipeline placeholder (coming soon)" };
+    info("api.podcast.start", { sessionId });
 
-    res.status(200).json({
-      success: true,
-      route: "podcast",
-      message: "Podcast generation executed successfully.",
-      result,
+    // Fire-and-forget orchestration
+    runPodcastPipeline(sessionId)
+      .then((result) => info("api.podcast.complete", { sessionId, ok: result.ok }))
+      .catch((err) => error("api.podcast.error", { sessionId, error: err.message }));
+
+    // Immediate return to avoid Render timeout
+    res.status(202).json({
+      ok: true,
+      sessionId,
+      message: "Podcast pipeline started. Check logs for progress.",
     });
-  } catch (error) {
+  } catch (err) {
+    error("api.podcast.fail", { error: err.message });
     res.status(500).json({
-      success: false,
-      route: "podcast",
-      message: "Podcast generation failed.",
-      error: error.message,
+      ok: false,
+      sessionId,
+      message: "Podcast start failed",
+      error: err.message,
     });
   }
 });
