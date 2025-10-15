@@ -1,45 +1,45 @@
-// /services/tts/index.js
-// Gemini 2.5 TTS Integration — October 2025
+// services/tts/index.js
+// TTS entrypoint using centralized R2 + logger; plain Gemini (no SSML)
 
-import fs from "node:fs/promises";
-import path from "node:path";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) throw new Error("Missing GEMINI_API_KEY in environment");
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+import { info, error } from "../shared/utils/logger.js";
+import { synthesizeSpeech } from "./utils/tts-engine.js";
+import { saveTtsChunk, saveMergedTts, saveTtsMeta, publishFinalTts } from "./utils/io.js";
 
 /**
- * Generate speech from text using Gemini 2.5's TTS model.
- * @param {string} text - Text input to synthesize.
- * @param {object} [options]
- * @param {string} [options.voice="en-GB-Standard-D"] - Voice preset.
- * @param {string} [options.output="output.mp3"] - Output filename.
- * @returns {Promise<string>} Path to generated MP3.
+ * Generate and store TTS (chunked, merged, and published)
+ * @param {object} opts
+ * @param {string} opts.text
+ * @param {string} opts.sessionId
+ * @param {string} opts.series
+ * @param {string} opts.voice
  */
-export async function generateSpeech(text, options = {}) {
-  const voice = options.voice || "en-GB-Standard-D";
-  const output = options.output || `tts-${Date.now()}.mp3`;
-  const outputPath = path.join("/tmp", output);
+export async function processTtsSession({ text, sessionId, series, voice = "en-GB-Wavenet-D" }) {
+  info("tts.session.start", { sessionId, series, textLength: text.length });
 
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-tts",
-  });
+  try {
+    // Step 1 – Generate raw audio
+    const audioBuffer = await synthesizeSpeech({ text, voice });
+    if (!audioBuffer?.length) throw new Error("Empty TTS output");
 
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text }] }],
-    generationConfig: {
-      responseMimeType: "audio/mp3",
-      voiceConfig: { voice },
-    },
-  });
+    const chunkKey = `chunks/${sessionId}/main.mp3`;
+    await saveTtsChunk(audioBuffer, chunkKey);
 
-  const audioData = result.response.candidates?.[0]?.content?.parts?.[0]?.data;
-  if (!audioData) throw new Error("No audio data returned from Gemini TTS");
+    // Step 2 – Save merged (same as chunk for now)
+    const mergedKey = `episodes/${sessionId}/merged.mp3`;
+    await saveMergedTts(audioBuffer, mergedKey);
 
-  const buffer = Buffer.from(audioData, "base64");
-  await fs.writeFile(outputPath, buffer);
+    // Step 3 – Store metadata
+    const metaKey = `episodes/${sessionId}/meta.json`;
+    await saveTtsMeta(metaKey, { series, voice, textLength: text.length });
 
-  return outputPath;
+    // Step 4 – Publish final copy to public bucket
+    const publicKey = `episodes/${sessionId}/final.mp3`;
+    const url = await publishFinalTts(audioBuffer, publicKey);
+
+    info("tts.session.complete", { sessionId, url });
+    return { url, sessionId };
+  } catch (err) {
+    error("tts.session.fail", { sessionId, error: err.message });
+    throw err;
+  }
 }
