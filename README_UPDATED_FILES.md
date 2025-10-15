@@ -1,24 +1,22 @@
-# AI Podcast Suite — Updated Files (RSS Feed Creator)
+# Change Log — AI Podcast Suite (Production Prep)
 
-This zip contains ONLY the updated/live files you asked for.
+- **services/artwork/routes/index.js** — Rewrite as router aggregator; remove wrong import & Hookdeck traces
+- **services/tts/routes/edit.js** — Remove Hookdeck webhook call
+- **services/tts/utils/webhooks.js** — Add generic webhook helper without Hookdeck
+- **services/script/utils/script-helper.js** — Remove Hookdeck mentions from comments
+- **services/script/routes/intro.js** — Remove HOOKDECK_* env chaining from storeAndTrigger
+- **services/script/routes/main.js** — Remove HOOKDECK_* env chaining from storeAndTrigger
+- **services/script/routes/outro.js** — Remove HOOKDECK_* env chaining from storeAndTrigger
+- **services/script/routes/compose.js** — Remove wakeup webhook block; no Hookdeck
+- **services/artwork/routes/health.js** — Remove Hookdeck mention in comments
+- **server.js** — Fix final log call to use info()
+- **package.json** — Pin wildcard deps, remove built-ins, move supertest to devDeps, bound engines
 
-## Included
-- `services/rss-feed-creator/rewrite-pipeline.js` — main pipeline with Short.io branding, title/description split, feed limits, R2 bootstrap.
-- `services/rss-feed-creator/build-rss.js` — writes RSS XML via `putText` to R2 public bucket.
-- `services/rss-feed-creator/bootstrap.js` — copies local `/data/feeds.txt` and `/data/urls.txt` into R2 if missing, creates cursor.
-- `services/rss-feed-creator/utils/rss-prompts.js` — reinforced Gen‑X British prompt.
-- `services/rss-feed-creator/utils/models.js` — uses central `services/shared/utils/ai-service.js` and route model `rss.rewrite`.
-- `services/rss-feed-creator/utils/shortio.js` — branded link shortener with graceful fallback.
-- `routes/rewrite.js` — route to trigger the pipeline `POST /api/rewrite/run` and a health `GET /api/rewrite`.
-
-## Assumptions
-- Central utilities live under `services/shared/utils/`:
-  - `logger.js` exporting `{ info, warn, error }`
-  - `r2-client.js` exporting `{ getObject, putJson, putText }`
-  - `ai-service.js` exporting `{ callAI(routeName, payload) }`
-- Env expected:
-  - `R2_BUCKET_RSS_FEEDS`, `R2_PUBLIC_BASE_URL_RSS`, optionally `MAX_ITEMS_PER_FEED`, `MAX_FEEDS_PER_RUN`.
-  - `SHORTIO_API_KEY`, `SHORTIO_DOMAIN` for branded links.
-
-## Endpoint
-- `POST /api/rewrite/run` — runs the pipeline and builds RSS.
+## Notes
+- Removed all Hookdeck-specific calls and envs from code.
+- Introduced generic optional webhooks for chaining where needed.
+- Fixed incorrect artwork routes index to aggregate subroutes.
+- Added missing `services/tts/utils/webhooks.js`.
+- Corrected logging call in `server.js`.
+- Pinned risky wildcard dependencies and removed built-ins from `dependencies`.
+- Target Node.js `>=22 <25`. Use Dockerfile based on `node:22-slim`.

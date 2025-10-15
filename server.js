@@ -55,5 +55,5 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  log("🚀 Server listening", { PORT: String(PORT), NODE_ENV });
+  info("🚀 Server listening", { PORT: String(PORT), NODE_ENV });
 });
