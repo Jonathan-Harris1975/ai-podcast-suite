@@ -3,7 +3,7 @@ import path from "path";
 import os from "os";
 import { spawn } from "child_process";
 
-import logger from "../shared/utils/logger.js";
+import logger from "../../../utils/logger.js";
 
 const tempDir = os.tmpdir();
 
