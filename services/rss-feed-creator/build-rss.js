@@ -1,8 +1,8 @@
 // services/rss-feed-creator/build-rss.js
 // Builds and uploads the main RSS feed to Cloudflare R2
 
-import { putText, putJson } from "../shared/utils/r2-client.js";
-import { info, error } from "../shared/utils/logger.js";
+import { putText, putJson } from "#shared/r2-client.js";
+import { info, error } from "#shared/logger.js";
 
 const RSS_BUCKET = process.env.R2_BUCKET_RSS_FEEDS;
 const FEED_TITLE = process.env.RSS_FEED_TITLE || "AI News (Rewritten)";

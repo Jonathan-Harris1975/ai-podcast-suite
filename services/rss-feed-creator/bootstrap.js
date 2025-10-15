@@ -3,8 +3,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { getObject, putText, putJson } from "../shared/utils/r2-client.js";
-import { info, error } from "../shared/utils/logger.js";
+import { getObject, putText, putJson } from "#shared/r2-client.js";
+import { info, error } from "#shared/logger.js";
 
 const FEEDS_KEY = "feeds.txt";
 const URLS_KEY = "urls.txt";

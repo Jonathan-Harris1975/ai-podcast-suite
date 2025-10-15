@@ -3,8 +3,8 @@
 
 import fetch from "node-fetch";
 import Parser from "rss-parser";
-import { getObject, putJson } from "../shared/utils/r2-client.js";
-import { info, error } from "../shared/utils/logger.js";
+import { getObject, putJson } from "#shared/r2-client.js";
+import { info, error } from "#shared/logger.js";
 import { rewriteItem } from "./utils/models.js";
 import { rebuildRss } from "./build-rss.js";
 import { ensureR2Bootstrap } from "./bootstrap.js";
