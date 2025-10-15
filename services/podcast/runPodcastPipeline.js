@@ -27,7 +27,7 @@ export async function runPodcastPipeline(sessionId) {
 
     // ── 2️⃣ TEXT-TO-SPEECH + MERGE
     log("tts.orchestrator.start", {});
-    const audioResult = await runTTSOrchestrator({
+    const audioResult = await processPodcastPipeline({
       sessionId,
       textChunks: scriptResult.chunks,
       voice: "en-GB-Wavenet-D", // your preferred voice
