@@ -1,19 +1,28 @@
-// services/shared/utils/logger.js
-// Minimal JSON logger (Render/Shiper friendly)
-export function log(level, message, meta = null) {
+// /shared/utils/logger.js
+const LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
+const envLevel = (process.env.LOG_LEVEL || "info").toLowerCase();
+const CURRENT = LEVELS[envLevel] ?? LEVELS.info;
+
+function fmt(data) {
   try {
-    const entry = {
-      time: new Date().toISOString(),
-      level,
-      message,
-      ...(meta && typeof meta === "object" ? { meta } : {}),
-    };
-    process.stdout.write(JSON.stringify(entry) + "\n");
+    if (!data) return "";
+    return typeof data === "string" ? data : JSON.stringify(data);
   } catch {
-    process.stdout.write(JSON.stringify({ time: new Date().toISOString(), level, message }) + "\n");
+    return String(data);
   }
 }
 
-export const info  = (msg, meta) => log("info", msg, meta);
-export const warn  = (msg, meta) => log("warn", msg, meta);
-export const error = (msg, meta) => log("error", msg, meta);
+export const log = {
+  error: (data, msg = "") => {
+    if (CURRENT >= LEVELS.error) console.error("❌ ERROR:", msg, fmt(data));
+  },
+  warn: (data, msg = "") => {
+    if (CURRENT >= LEVELS.warn) console.warn("⚠️  WARN:", msg, fmt(data));
+  },
+  info: (data, msg = "") => {
+    if (CURRENT >= LEVELS.info) console.log("ℹ️  INFO:", msg, fmt(data));
+  },
+  debug: (data, msg = "") => {
+    if (CURRENT >= LEVELS.debug) console.log("🔍 DEBUG:", msg, fmt(data));
+  },
+};
