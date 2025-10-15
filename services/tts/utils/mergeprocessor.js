@@ -5,7 +5,7 @@ import path from "path";
 import { spawn } from "child_process";
 import fetch from "node-fetch";
 
-import logger from "../../../utils/logger.js";
+import * as logger from "#shared/logger.js";
 
 const tempDir = "/tmp"; // Render ephemeral storage
 

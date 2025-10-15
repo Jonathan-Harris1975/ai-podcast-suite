@@ -5,7 +5,7 @@ import { mergeChunks } from "./mergeprocessor.js";
 import { processEditing } from "./editingProcessor.js";
 import { processPodcast } from "./podcastProcessor.js";
 
-import logger from "../../../utils/logger.js";
+import * as logger from "#shared/logger.js";
 
 /**
  * Main orchestration function
