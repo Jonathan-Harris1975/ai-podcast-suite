@@ -28,9 +28,10 @@ export const s3 = new S3Client({
   },
 });
 
+// Back-compat alias
 export const r2Client = s3;
 
-// Bucket configuration
+// Buckets map (both names used across repo)
 export const R2_BUCKETS = {
   RAW: process.env.R2_BUCKET_RAW,
   RAW_TEXT: process.env.R2_BUCKET_RAW_TEXT,
@@ -42,7 +43,6 @@ export const R2_BUCKETS = {
   CHUNKS: process.env.R2_BUCKET_CHUNKS,
   TRANSCRIPTS: process.env.R2_BUCKET_TRANSCRIPTS,
 };
-
 export const BUCKETS = R2_BUCKETS;
 
 // Public base URLs
@@ -66,7 +66,6 @@ const bucketNameToKey = (() => {
   return map;
 })();
 
-// Helper functions
 export async function uploadBuffer({ bucket, key, body, contentType }) {
   try {
     const cmd = new PutObjectCommand({
