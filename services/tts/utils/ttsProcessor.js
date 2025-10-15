@@ -1,4 +1,5 @@
-// /services/tts/utils/ttsProcessor.js
+
+// /app/services/tts/utils/ttsProcessor.js
 import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "#shared/r2-client.js";
 import fs from "fs";
 import os from "os";
@@ -7,9 +8,9 @@ import pLimit from "p-limit";
 import fetch from "node-fetch";
 import ffmpeg from "fluent-ffmpeg";
 import { log } from "../../../utils/logger.js";
-import { validateEnv } from "../../../shared/utils/envChecker.js";
+import { validateEnv } from "../../../utils/envChecker.js";
 
-// Ensure required env is present
+// ✅ Ensure required env vars exist
 validateEnv(["GEMINI_API_KEY"]);
 
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -68,7 +69,6 @@ async function convertPcmToMp3(pcmFile, mp3File) {
 }
 
 async function synthesizeChunk(text, outMp3, idx) {
-  // ✅ Properly structured payload
   const payload = {
     model: "gemini-2.5-flash-preview-tts",
     contents: [
@@ -113,15 +113,12 @@ async function synthesizeChunk(text, outMp3, idx) {
 
 export async function processTTS(sessionId) {
   log.info({ sessionId }, "🎙 Starting TTS");
-
-  // This assumes you have a helper to list & fetch text chunk URLs
   if (typeof getTextChunkUrls !== "function") {
     throw new Error("getTextChunkUrls(sessionId) is not defined in this module's scope");
   }
   const urls = await getTextChunkUrls(sessionId);
   if (!urls.length) throw new Error("No text chunks found");
 
-  // fetch and combine
   let combined = "";
   for (const u of urls) {
     const res = await fetch(u);
