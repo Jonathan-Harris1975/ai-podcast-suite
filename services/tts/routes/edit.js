@@ -13,7 +13,6 @@ router.post("/", async (req, res) => {
     const result = await normalizeAndFinalize(sessionId);
     // Final notify
     await postWebhook("PODCAST_WEBHOOK", { sessionId, ...result });
-    await postWebhook("HOOKDECK_WEBHOOK_URL", { sessionId, event: "edit_done", ...result });
     res.json({ success: true, ...result });
   } catch (err) {
     log.error({ sessionId, err: err.message }, "edit failed");
