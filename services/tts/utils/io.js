@@ -1,8 +1,8 @@
 // services/tts/utils/io.js
 // Unified I/O helpers for TTS audio pipeline – central R2 + logger
 
-import { putObject, putJson } from "../../shared/utils/r2-client.js";
-import { info, error } from "../../shared/utils/logger.js";
+import { putObject, putJson } from "#shared/r2-client.js";
+import { info, error } from "#shared/logger.js";
 
 // Environment variables (required)
 const RAW_BUCKET     = process.env.R2_BUCKET_RAW;       // podcast-chunks
