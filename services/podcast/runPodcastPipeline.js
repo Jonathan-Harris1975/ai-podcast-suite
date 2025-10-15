@@ -1,8 +1,9 @@
 // services/podcast/runPodcastPipeline.js
-// Uses tts/utils/orchestrator.js for full audio generation and merge flow
+// AI Podcast Suite – Full Orchestrated Podcast Pipeline
+// Runs script (intro→main→outro→compose), TTS, artwork, and metadata save.
 
 import { info, error } from "../shared/utils/logger.js";
-import { generateScript } from "../script/generateScript.js";
+import { runScriptOrchestrator } from "../script/utils/orchestrator.js";
 import { runTTSOrchestrator } from "../tts/utils/orchestrator.js";
 import { createPodcastArtwork } from "../artwork/createPodcastArtwork.js";
 import { putJson } from "../shared/utils/r2-client.js";
@@ -16,29 +17,38 @@ export async function runPodcastPipeline(sessionId) {
   try {
     log("start", {});
 
-    // ── 1️⃣ SCRIPT
+    // ── 1️⃣ SCRIPT GENERATION
     log("script.start", {});
-    const scriptResult = await generateScript(sessionId);
-    log("script.done", { chunks: scriptResult?.chunks?.length || 0 });
+    const scriptResult = await runScriptOrchestrator(sessionId);
+    if (!scriptResult?.ok || !scriptResult?.chunks?.length) {
+      throw new Error("Script generation failed or returned no chunks");
+    }
+    log("script.done", { chunks: scriptResult.chunks.length });
 
-    // ── 2️⃣ TTS + MERGE handled inside orchestrator
+    // ── 2️⃣ TEXT-TO-SPEECH + MERGE
     log("tts.orchestrator.start", {});
     const audioResult = await runTTSOrchestrator({
       sessionId,
       textChunks: scriptResult.chunks,
-      voice: "en-GB-Wavenet-D",
+      voice: "en-GB-Wavenet-D", // your preferred voice
     });
+    if (!audioResult?.publicUrl) {
+      throw new Error("TTS orchestrator did not return merged URL");
+    }
     log("tts.orchestrator.done", {
       mergedUrl: audioResult.publicUrl,
       total: audioResult.totalChunks,
     });
 
-    // ── 3️⃣ ARTWORK
+    // ── 3️⃣ ARTWORK GENERATION
     log("artwork.start", {});
     const artworkResult = await createPodcastArtwork({ sessionId });
+    if (!artworkResult?.publicUrl) {
+      throw new Error("Artwork generation failed");
+    }
     log("artwork.done", { imageKey: artworkResult.key });
 
-    // ── 4️⃣ META SAVE
+    // ── 4️⃣ METADATA SAVE TO R2
     const duration = Math.round((Date.now() - started) / 1000);
     const meta = {
       sessionId,
@@ -47,16 +57,17 @@ export async function runPodcastPipeline(sessionId) {
       mergedUrl: audioResult.publicUrl,
       artwork: artworkResult.publicUrl,
       totalChunks: audioResult.totalChunks,
-      scriptChunks: scriptResult.chunks?.length,
+      scriptChunks: scriptResult.chunks.length,
     };
 
     await putJson(META_BUCKET, `${sessionId}/meta.json`, meta);
-    log("meta.saved", { bucket: META_BUCKET });
-    log("done", { duration });
+    log("meta.saved", { bucket: META_BUCKET, key: `${sessionId}/meta.json` });
 
+    // ── ✅ PIPELINE COMPLETE
+    log("done", { duration, mergedUrl: audioResult.publicUrl });
     return { ok: true, sessionId, meta };
   } catch (err) {
     error("pipeline.fail", { sessionId, error: err.message });
     return { ok: false, error: err.message };
   }
-}
+      }
