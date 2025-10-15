@@ -6,9 +6,6 @@ import pLimit from "p-limit";
 import fetch from "node-fetch";
 import ffmpeg from "fluent-ffmpeg";
 import { log } from "../../../utils/logger.js";
-import { validateEnv } from "../services/env-checker.js";
-validateEnv();          // hard-stop if any env var is missing
-// single HeadBucket probe (no retries/ping)
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const TTS_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent";
