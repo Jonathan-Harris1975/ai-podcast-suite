@@ -5,6 +5,7 @@ import {
   S3Client,
   GetObjectCommand,
   PutObjectCommand,
+  getR2ReadStream,
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { info, error } from "./logger.js";
