@@ -1,60 +1,42 @@
 // services/rss-feed-creator/bootstrap.js
-// Full integration with rewrite pipeline + R2 client consistency
+import fs from "fs";
+import path from "path";
+import { R2_BUCKETS, uploadBuffer } from "#shared/r2-client.js";
+import { log } from "#shared/logger.js";
 
-import fs from "node:fs";
-import path from "node:path";
-import { getObject, putText, putJson } from "#shared/r2-client.js";
-import { info, error } from "#shared/logger.js";
+const DATA_DIR = path.join(process.cwd(), "services/rss-feed-creator/data");
 
-const FEEDS_KEY = "feeds.txt";
-const URLS_KEY = "urls.txt";
-const CURSOR_KEY = "cursor.json";
-const RSS_BUCKET = process.env.R2_BUCKET_RSS_FEEDS;
+export async function uploadRssDataFiles() {
+  const feedFile = path.join(DATA_DIR, "feeds.txt");
+  const urlFile = path.join(DATA_DIR, "urls.txt");
+  const bucket = R2_BUCKETS.RSS_FEEDS;
 
-/**
- * Ensure feeds.txt, urls.txt, and cursor.json exist in the rss-feeds bucket.
- * Copies from /services/rss-feed-creator/data if missing.
- */
-export async function ensureR2Bootstrap() {
-  try {
-    if (!RSS_BUCKET) throw new Error("R2_BUCKET_RSS_FEEDS env missing");
+  const files = [
+    { name: "feeds.txt", path: feedFile },
+    { name: "urls.txt", path: urlFile },
+  ];
 
-    const baseDir = path.resolve("services/rss-feed-creator/data");
-    const feedsPath = path.join(baseDir, FEEDS_KEY);
-    const urlsPath = path.join(baseDir, URLS_KEY);
-
-    // Try to load from R2
-    const [feeds, urls, cursor] = await Promise.all([
-      getObject(RSS_BUCKET, FEEDS_KEY),
-      getObject(RSS_BUCKET, URLS_KEY),
-      getObject(RSS_BUCKET, CURSOR_KEY),
-    ]);
-
-    // Upload feeds.txt if missing
-    if (!feeds && fs.existsSync(feedsPath)) {
-      const localFeeds = fs.readFileSync(feedsPath, "utf-8");
-      await putText(RSS_BUCKET, FEEDS_KEY, localFeeds);
-      info("bootstrap.upload", { key: FEEDS_KEY, bucket: RSS_BUCKET });
+  for (const file of files) {
+    if (!fs.existsSync(file.path)) {
+      log.error("rss.bootstrap.missingFile", { file: file.path });
+      continue;
     }
 
-    // Upload urls.txt if missing
-    if (!urls && fs.existsSync(urlsPath)) {
-      const localUrls = fs.readFileSync(urlsPath, "utf-8");
-      await putText(RSS_BUCKET, URLS_KEY, localUrls);
-      info("bootstrap.upload", { key: URLS_KEY, bucket: RSS_BUCKET });
-    }
+    const body = fs.readFileSync(file.path);
+    await uploadBuffer({
+      bucket,
+      key: file.name,
+      body,
+      contentType: "text/plain",
+    });
 
-    // Create cursor.json if missing
-    if (!cursor) {
-      const cursorObj = { feedIndex: 0, urlIndex: 0 };
-      await putJson(RSS_BUCKET, CURSOR_KEY, cursorObj);
-      info("bootstrap.cursor", { key: CURSOR_KEY, bucket: RSS_BUCKET });
-    }
-
-    info("bootstrap.ready", { bucket: RSS_BUCKET });
-    return true;
-  } catch (err) {
-    error("bootstrap.error", { error: err.message });
-    throw err;
+    log.info("rss.bootstrap.uploaded", { bucket, key: file.name });
   }
+
+  log.info("rss.bootstrap.complete", { uploaded: files.length });
+}
+
+// Called automatically by main bootstrap sequence
+if (process.env.SHIPER_BOOTSTRAP === "true") {
+  uploadRssDataFiles().catch(err => log.error("rss.bootstrap.fail", { error: err.message }));
 }
