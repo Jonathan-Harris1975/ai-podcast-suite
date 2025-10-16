@@ -156,4 +156,4 @@ export async function listKeys({ bucket, prefix }) {
     error("r2.listKeys.fail", { bucket, prefix, error: err.message });
     throw err;
   }
-  }
+    }
