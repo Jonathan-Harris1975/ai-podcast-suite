@@ -1,5 +1,5 @@
 # ============================================================
-# 🧠 AI Podcast Suite — Shiper JS Runtime Dockerfile (Final)
+# 🧠 AI Podcast Suite — Shiper Bootstrap Runtime Dockerfile
 # ============================================================
 
 FROM node:22-alpine
@@ -15,24 +15,12 @@ RUN npm ci --omit=dev
 COPY . .
 
 # Ensure scripts are executable
+RUN chmod +x ./scripts/*.js || true
 
 # Expose for Shiper web runtime
 EXPOSE 3000
 
 # ============================================================
-# 🧩 Diagnostic Entrypoint (JS Version)
+# 🧩 Bootstrap Entrypoint
 # ============================================================
-CMD [ "sh", "-c", "\
-  echo '✅ Dockerfile build finished successfully'; \
-  echo '🚀 Container runtime started at:' $(date); \
-  echo '---------------------------------------------'; \
-  echo '📂 Working Directory:' $(pwd); \
-  echo '📦 Node Version:' $(node -v); \
-  echo '📁 Listing /app contents:'; \
-  ls -R /app; \
-  echo '---------------------------------------------'; \
-  echo '🧩 Launching startupCheck.js...'; \
-  node ./scripts/startupCheck.js || { echo '❌ Node execution failed'; exit 1; }; \
-  echo '💤 Keeping container alive for Shiper logs...'; \
-  tail -f /dev/null \
-" ]
+CMD ["node", "./scripts/bootstrap.js"]
