@@ -1,4 +1,4 @@
-import {getObjectAsText} from "#shared/r2-client.js";
+import {getR2ReadStream} from "#shared/r2-client.js";
 import path from "path";
 import os from "os";
 import { spawn } from "child_process";
