@@ -1,28 +1,33 @@
-// /shared/utils/logger.js
-const LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
-const envLevel = (process.env.LOG_LEVEL || "info").toLowerCase();
-const CURRENT = LEVELS[envLevel] ?? LEVELS.info;
+// ============================================================
+// 🧠 AI Podcast Suite — Pino Logger
+// ============================================================
+// Structured logging with environment-aware settings
+// Works consistently in Shiper, Render, and local dev
+// ------------------------------------------------------------
 
-function fmt(data) {
-  try {
-    if (!data) return "";
-    return typeof data === "string" ? data : JSON.stringify(data);
-  } catch {
-    return String(data);
-  }
-}
+import pino from "pino";
 
-export const log = {
-  error: (data, msg = "") => {
-    if (CURRENT >= LEVELS.error) console.error("❌ ERROR:", msg, fmt(data));
-  },
-  warn: (data, msg = "") => {
-    if (CURRENT >= LEVELS.warn) console.warn("⚠️  WARN:", msg, fmt(data));
-  },
-  info: (data, msg = "") => {
-    if (CURRENT >= LEVELS.info) console.log("ℹ️  INFO:", msg, fmt(data));
-  },
-  debug: (data, msg = "") => {
-    if (CURRENT >= LEVELS.debug) console.log("🔍 DEBUG:", msg, fmt(data));
-  },
-};
+const isProd = process.env.NODE_ENV === "production";
+
+export const log = pino({
+  level: process.env.LOG_LEVEL || "info",
+  transport: isProd
+    ? undefined
+    : {
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          translateTime: "SYS:standard",
+          ignore: "pid,hostname",
+          singleLine: true,
+        },
+      },
+});
+
+// Optional shorthand helpers (to keep existing calls working)
+export const info = (...args) => log.info(...args);
+export const warn = (...args) => log.warn(...args);
+export const error = (...args) => log.error(...args);
+export const debug = (...args) => log.debug(...args);
+
+export default log;
