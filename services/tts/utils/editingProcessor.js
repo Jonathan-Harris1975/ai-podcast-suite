@@ -40,7 +40,9 @@ async function streamFromR2ToFfmpeg(sessionId, outputFile) {
       const readStream = await getR2ReadStream(fileName);
       
       const filters = [
-        "highpass=f=100,lowpass=f=10000,afftdn=nr=10:tn=1,firequalizer=gain_entry='entry(150,3);entry(2500,2)',deesser=f=7000:i=0.7,acompressor=threshold=-24dB:ratio=4:attack=10:release=200:makeup=5,dynaudnorm=f=100:n=0:p=0.9,aresample=44100,aconvolution=reverb=0.1:0.1:0.9:0.9";
+        "highpass=f=100,lowpass=f=10000,afftdn=nr=10:tn=1,firequalizer=gain_entry='entry(150,3);entry(2500,2)',
+        deesser=f=7000:i=0.7,acompressor=threshold=-24dB:ratio=4:attack=10:release=200:makeup=5,dynaudnorm=f=100:n=0:p=0.9,
+        aresample=44100,aconvolution=reverb=0.1:0.1:0.9:0.9",
         "equalizer=f=120:width_type=o:width=2:g=3",
         "equalizer=f=9000:width_type=o:width=2:g=2"
         
