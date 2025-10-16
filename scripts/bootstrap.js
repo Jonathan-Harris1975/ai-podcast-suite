@@ -1,5 +1,5 @@
 // ============================================================
-// 🧠 AI Podcast Suite — Bootstrap Startup Runner
+// 🧠 🌐 AI Podcast Suite — Bootstrap Startup Runner
 // ============================================================
 
 import { execSync } from "child_process";
@@ -19,6 +19,7 @@ console.log("---------------------------------------------");
 
 run("node ./scripts/fix-logger-and-env-imports.js", "Fix Logger and Env Imports");
 run("node ./scripts/startupCheck.js", "Startup Check");
+run("node server.js", "Start Server"); // Added this line to start the server
 
 console.log("---------------------------------------------");
 console.log("💤 Bootstrap complete — container entering idle mode.");
