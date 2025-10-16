@@ -15,7 +15,7 @@ RUN npm ci --omit=dev
 COPY . .
 
 # Ensure scripts are executable
-RUN chmod +x ./scripts/startupCheck.mjs ./scripts/fix-logger-and-env-imports.mjs || true
+RUN chmod +x ./scripts/startupCheck.js ./scripts/fix-logger-and-env-imports.js || true
 
 # Expose the application port for Shiper runtime detection
 EXPOSE 3000
@@ -27,4 +27,10 @@ EXPOSE 3000
 # the container alive for live log visibility.
 # ============================================================
 
-CMD [ "sh", "-c", "  echo '✅ Dockerfile build finished successfully';   echo '🚀 Container runtime started at:' $(date);   echo '---------------------------------------------';   echo '📂 Working Directory:' $(pwd);   echo '📦 Node Version:' $(node -v);   echo '📁 Listing /app contents:';   ls -R /app;   echo '---------------------------------------------';   echo '🧩 Launching startupCheck.mjs...';   node ./scripts/startupCheck.mjs || { echo '❌ Node execution failed'; exit 1; };   echo '💤 Keeping container alive for Shiper logs...';   tail -f /dev/null " ]
+CMD [ "sh", "-c", "  echo '✅ Dockerfile build finished successfully';  
+echo '🚀 Container runtime started at:' $(date);   echo '---------------------------------------------';  
+echo '📂 Working Directory:' $(pwd);   echo '📦 Node Version:' $(node -v);   echo '📁 Listing /app contents:'; 
+ls -R /app;   echo '---------------------------------------------';  
+echo '🧩 Launching startupCheck.mjs...';  
+node ./scripts/startupCheck.js || { echo '❌ Node execution failed'; exit 1; };  
+echo '💤 Keeping container alive for Shiper logs...';   tail -f /dev/null " ]
