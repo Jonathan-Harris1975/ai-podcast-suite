@@ -1,23 +1,35 @@
 // ============================================================
-// 🧠 AI Podcast Suite — Bootstrap Runner (Fixed)
+// 🧠 AI Podcast Suite — Bootstrap Sequence
 // ============================================================
-// Runs environment, logger, R2, and server checks sequentially.
+// Updated to automatically run the R2 Text Safety Patch
+// before any service initialization.
 // ============================================================
 
 import { execSync } from "child_process";
+import { log } from "#shared/logger.js";
 
-function run(command, label) {
-  console.log(`🚀 Running ${label}...`);
-  execSync(command, { stdio: "inherit" });
+async function run(cmd, label) {
+  try {
+    log.info(`🚀 Running ${label}...`);
+    execSync(cmd, { stdio: "inherit" });
+    log.info(`✅ ${label} completed successfully.`);
+  } catch (err) {
+    log.error(`❌ ${label} failed:`, { error: err.message });
+  }
 }
 
-console.log("🧩 Starting AI Podcast Suite bootstrap sequence...");
-console.log("---------------------------------------------");
+(async () => {
+  log.info("🧩 Starting AI Podcast Suite bootstrap sequence...");
+  log.info("---------------------------------------------");
 
-run("node ./scripts/fix-logger-and-env-imports.js", "Fix Logger and Env Imports");
-run("node ./scripts/startupCheck.js", "Startup Check");
-run("node ./scripts/tempStorage.js", "R2 Check");
-run("node server.js", "Start Server");
+  // Auto-apply R2 text safety migration
+  await import("./apply-r2-text-safety.js");
 
-console.log("---------------------------------------------");
-console.log("💤 Bootstrap complete — container entering idle mode.");
+  await run("node ./scripts/fix-logger-and-env-imports.js", "Fix Logger and Env Imports");
+  await run("node ./scripts/startupCheck.js", "Startup Check");
+  await run("node ./scripts/tempStorage.js", "R2 Check");
+  await run("node server.js", "Start Server");
+
+  log.info("---------------------------------------------");
+  log.info("💤 Bootstrap complete — container entering idle mode.");
+})();
