@@ -1,5 +1,5 @@
 // /scripts/startupCheck.mjs
-console.log("🚀 StartupCheck.mjs is executing inside Shiper container!");
+console.log("🚀 StartupCheck.js is executing inside Shiper container!");
 import { execSync, spawnSync } from "child_process";
 import fs from "fs";
 import os from "os";
@@ -35,7 +35,7 @@ step("Checking critical directories", () => {
 });
 
 step("Running codemod", () => {
-  const res = spawnSync("node", ["./scripts/fix-logger-and-env-imports.mjs"], { stdio: "inherit" });
+  const res = spawnSync("node", ["./scripts/fix-logger-and-env-imports.js"], { stdio: "inherit" });
   if (res.status !== 0) throw new Error("Codemod failed");
 });
 
