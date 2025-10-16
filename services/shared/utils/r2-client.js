@@ -81,7 +81,22 @@ export async function uploadBuffer({ bucket, key, body, contentType }) {
     throw err;
   }
 }
-
+export async function getR2ReadStream(bucket, key) {
+  try {
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+    const response = await s3.send(command);
+    
+    if (!response.Body) {
+      throw new Error(`No body returned for ${key} in bucket ${bucket}`);
+    }
+    
+    info("r2.getR2ReadStream.success", { bucket, key });
+    return response.Body;
+  } catch (err) {
+    error("r2.getR2ReadStream.fail", { bucket, key, error: err.message });
+    throw err;
+  }
+}
 export async function putObject(params) {
   try {
     await s3.send(new PutObjectCommand(params));
