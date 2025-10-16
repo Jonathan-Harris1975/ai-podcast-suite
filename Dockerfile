@@ -16,7 +16,7 @@ COPY . .
 
 # Ensure scripts are executable
 RUN chmod +x ./scripts/startupCheck.mjs ./scripts/fix-logger-and-env-imports.mjs || true
-
+EXPOSE 3000
 # ============================================================
 # 🧩 Diagnostic entrypoint
 # ============================================================
