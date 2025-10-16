@@ -1,10 +1,5 @@
 // ============================================================
-// 🧠 AI Podcast Suite — Final Unified Logger (Pino)
-// ============================================================
-//
-// - Works in both production (JSON logs) and local dev (pretty logs)
-// - Prevents redeclaration errors by using a single export symbol
-// - No global collisions or duplicate imports
+// 🧠 AI Podcast Suite — Final Unified Logger (Non-recursive)
 // ============================================================
 
 import pino from "pino";
@@ -12,42 +7,43 @@ import pino from "pino";
 const isProd =
   process.env.NODE_ENV === "production" || process.env.SHIPER === "true";
 
-// Singleton check to prevent multiple reinitializations
 let loggerInstance = globalThis.__AI_PODCAST_LOGGER__;
 if (!loggerInstance) {
+  const baseConfig = {
+    level: process.env.LOG_LEVEL || (isProd ? "info" : "debug"),
+    base: { service: "ai-podcast-suite" },
+  };
+
   if (isProd) {
     loggerInstance = pino({
-      level: process.env.LOG_LEVEL || "info",
-      base: { service: "ai-podcast-suite" },
+      ...baseConfig,
       timestamp: pino.stdTimeFunctions.isoTime,
     });
   } else {
     loggerInstance = pino({
-      level: process.env.LOG_LEVEL || "debug",
-      base: { service: "ai-podcast-suite" },
+      ...baseConfig,
       transport: {
         target: "pino-pretty",
         options: {
           colorize: true,
           singleLine: true,
-          ignore: "pid,hostname",
           translateTime: "SYS:standard",
+          ignore: "pid,hostname",
         },
       },
     });
   }
 
-  // store in global namespace to prevent re-creation
   globalThis.__AI_PODCAST_LOGGER__ = loggerInstance;
 }
 
-// ✅ Export consistent singleton
-export const log = loggerInstance;
+// ✅ Export single instance — guaranteed non-duplicate
+const log = loggerInstance;
 
-// Optional helper shortcuts
-export const info = (...args) => log.info(...args);
-export const warn = (...args) => log.warn(...args);
-export const error = (...args) => log.error(...args);
-export const debug = (...args) => log.debug(...args);
+export { log };
+export const info = (...a) => log.info(...a);
+export const warn = (...a) => log.warn(...a);
+export const error = (...a) => log.error(...a);
+export const debug = (...a) => log.debug(...a);
 
 export default log;
