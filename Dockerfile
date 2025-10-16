@@ -15,7 +15,6 @@ RUN npm ci --omit=dev
 COPY . .
 
 # Ensure scripts are executable
-RUN chmod +x ./scripts/startupCheck.js ./scripts/fix-logger-and-env-imports.js || true
 
 # Expose for Shiper web runtime
 EXPOSE 3000
