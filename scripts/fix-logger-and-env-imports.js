@@ -1,25 +1,54 @@
 // ============================================================
-// 🧩 Fix Logger and Env Imports (Bootstrap Version)
+// 🧩 Fix Logger and Env Imports — Pino Edition
 // ============================================================
 
 import fs from "fs";
 import path from "path";
 
-const rootDir = process.cwd();
-const targetDirs = ["services", "shared", "utils", "bootstrap"];
+const rootDir = "/app";
+const targetFiles = [];
 
-console.log("🔧 Scanning project to verify logger/env imports...");
-for (const dir of targetDirs) {
-  const fullPath = path.join(rootDir, dir);
-  if (!fs.existsSync(fullPath)) continue;
-  for (const file of fs.readdirSync(fullPath)) {
-    if (file.endsWith(".js")) {
-      const filePath = path.join(fullPath, file);
-      const content = fs.readFileSync(filePath, "utf8");
-      if (content.includes("envChecker") || content.includes("logger")) {
-        console.log(`🧩 Verified imports in: ${filePath}`);
-      }
+function walk(dir) {
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const full = path.join(dir, file);
+    if (fs.statSync(full).isDirectory()) {
+      walk(full);
+    } else if (file.endsWith(".js")) {
+      targetFiles.push(full);
     }
   }
 }
-console.log("✅ Logger and env import verification complete.");
+
+// Find JS files
+walk(rootDir);
+
+for (const file of targetFiles) {
+  let content = fs.readFileSync(file, "utf8");
+
+  // Replace any old logger import destructures
+  if (content.includes("logger.js")) {
+    const before = content;
+
+    content = content
+      .replace(
+        /import\s*\{[^}]*\}\s*from\s*["']#?\.?\/?shared\/logger\.js["'];?/g,
+        `import { log } from "#shared/logger.js";`
+      )
+      .replace(
+        /import\s*\{[^}]*\}\s*from\s*["']\.{0,2}\/utils\/logger\.js["'];?/g,
+        `import { log } from "./logger.js";`
+      )
+      .replace(/\binfo\(/g, "log.info(")
+      .replace(/\berror\(/g, "log.error(")
+      .replace(/\bwarn\(/g, "log.warn(")
+      .replace(/\bdebug\(/g, "log.debug(");
+
+    if (content !== before) {
+      fs.writeFileSync(file, content, "utf8");
+      console.log(`🧩 Updated logger imports in: ${file}`);
+    }
+  }
+}
+
+console.log("✅ Logger import and call updates complete.");
