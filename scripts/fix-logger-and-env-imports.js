@@ -1,5 +1,5 @@
 // ============================================================
-// 🧩 Fix Logger and Env Imports (JS Version)
+// 🧩 Fix Logger and Env Imports (Bootstrap Version)
 // ============================================================
 
 import fs from "fs";

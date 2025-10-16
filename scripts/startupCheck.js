@@ -1,5 +1,5 @@
 // ============================================================
-// 🧠 AI Podcast Suite — Startup Check (JS Version)
+// 🧠 AI Podcast Suite — Startup Check (Bootstrap Version)
 // ============================================================
 
 import fs from "fs";
