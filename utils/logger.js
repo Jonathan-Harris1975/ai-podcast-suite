@@ -1,10 +1,10 @@
 // ============================================================
-// 🧠 AI Podcast Suite — Unified Pino Logger (Shiper-safe)
+// 🧠 AI Podcast Suite — Final Unified Logger (Pino)
 // ============================================================
 //
-// - Works in both development and production
-// - Pretty prints locally using pino-pretty
-// - Emits structured JSON in production for Shiper
+// - Works in both production (JSON logs) and local dev (pretty logs)
+// - Prevents redeclaration errors by using a single export symbol
+// - No global collisions or duplicate imports
 // ============================================================
 
 import pino from "pino";
@@ -12,36 +12,39 @@ import pino from "pino";
 const isProd =
   process.env.NODE_ENV === "production" || process.env.SHIPER === "true";
 
-let loggerInstance;
+// Singleton check to prevent multiple reinitializations
+let loggerInstance = globalThis.__AI_PODCAST_LOGGER__;
+if (!loggerInstance) {
+  if (isProd) {
+    loggerInstance = pino({
+      level: process.env.LOG_LEVEL || "info",
+      base: { service: "ai-podcast-suite" },
+      timestamp: pino.stdTimeFunctions.isoTime,
+    });
+  } else {
+    loggerInstance = pino({
+      level: process.env.LOG_LEVEL || "debug",
+      base: { service: "ai-podcast-suite" },
+      transport: {
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          singleLine: true,
+          ignore: "pid,hostname",
+          translateTime: "SYS:standard",
+        },
+      },
+    });
+  }
 
-if (isProd) {
-  // ✅ Production: JSON logs for Shiper / Render
-  loggerInstance = pino({
-    level: process.env.LOG_LEVEL || "info",
-    base: { service: "ai-podcast-suite" },
-    timestamp: pino.stdTimeFunctions.isoTime
-  });
-} else {
-  // 🧩 Development: Pretty output using pino-pretty
-  loggerInstance = pino({
-    level: process.env.LOG_LEVEL || "debug",
-    base: { service: "ai-podcast-suite" },
-    transport: {
-      target: "pino-pretty",
-      options: {
-        colorize: true,
-        translateTime: "SYS:standard",
-        ignore: "pid,hostname",
-        singleLine: true
-      }
-    }
-  });
+  // store in global namespace to prevent re-creation
+  globalThis.__AI_PODCAST_LOGGER__ = loggerInstance;
 }
 
-// ✅ Export single instance (no duplicate declaration issues)
+// ✅ Export consistent singleton
 export const log = loggerInstance;
 
-// Optional direct helper aliases (for convenience)
+// Optional helper shortcuts
 export const info = (...args) => log.info(...args);
 export const warn = (...args) => log.warn(...args);
 export const error = (...args) => log.error(...args);
