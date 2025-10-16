@@ -1,12 +1,9 @@
 // ============================================================
-// 🧠 AI Podcast Suite — R2 Text Safety Patch (Auto Bootstrap)
+// 🧠 AI Podcast Suite — R2 Text Safety Patch (Safe Mode)
 // ============================================================
 //
-// Converts all unsafe `getObject()` calls to `getObjectAsText()`
-// to prevent Buffer/JSON parse issues in textual workflows.
-//
-// Runs automatically via bootstrap.js at container startup.
-//
+// Automatically ensures all unsafe getObject() calls use
+// getObjectAsText() — but *only if not already defined*.
 // ============================================================
 
 import fs from "fs";
@@ -33,6 +30,12 @@ function walk(dir) {
       walk(fullPath);
     } else if (file.endsWith(".js")) {
       let content = fs.readFileSync(fullPath, "utf-8");
+
+      // Skip patch if getObjectAsText already defined
+      if (/function\s+getObjectAsText/.test(content)) {
+        continue;
+      }
+
       if (patternImport.test(content) || patternCall.test(content)) {
         const updated = content
           .replace(patternImport, "getObjectAsText")
@@ -48,12 +51,12 @@ function walk(dir) {
 }
 
 try {
-  log.info("🧠 Applying R2 Text Safety Patch...");
+  log.info("🧠 Applying R2 Text Safety Patch (Safe Mode)...");
   walk(projectRoot);
   if (processed.length > 0) {
     log.info("✅ R2 Text Safety Patch applied to:", processed);
   } else {
-    log.info("✨ No unsafe getObject() usages found — all safe!");
+    log.info("✨ No updates required — safe definitions already exist.");
   }
 } catch (err) {
   log.error("❌ Failed to apply R2 Text Safety Patch:", { error: err.message });
