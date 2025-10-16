@@ -1,5 +1,5 @@
-// /scripts/fix-logger-and-env-imports.mjs
-// Usage: node ./scripts/fix-logger-and-env-imports.mjs
+// /scripts/fix-logger-and-env-imports.js
+// Usage: node ./scripts/fix-logger-and-env-imports.js
 // Recursively rewrites logger/envChecker imports and logger call sites across the repo.
 // No external deps required.
 
