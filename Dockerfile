@@ -1,5 +1,5 @@
 # ============================================================
-# 🧠 AI Podcast Suite — Shiper Runtime Diagnostic Dockerfile (Final Version)
+# 🧠 AI Podcast Suite — Shiper JS Runtime Dockerfile (Final)
 # ============================================================
 
 FROM node:22-alpine
@@ -17,20 +17,23 @@ COPY . .
 # Ensure scripts are executable
 RUN chmod +x ./scripts/startupCheck.js ./scripts/fix-logger-and-env-imports.js || true
 
-# Expose the application port for Shiper runtime detection
+# Expose for Shiper web runtime
 EXPOSE 3000
 
 # ============================================================
-# 🧩 Diagnostic Entrypoint (Final Version)
+# 🧩 Diagnostic Entrypoint (JS Version)
 # ============================================================
-# This version prints environment diagnostics and then keeps
-# the container alive for live log visibility.
-# ============================================================
-
-CMD [ "sh", "-c", "  echo '✅ Dockerfile build finished successfully';  
-echo '🚀 Container runtime started at:' $(date);   echo '---------------------------------------------';  
-echo '📂 Working Directory:' $(pwd);   echo '📦 Node Version:' $(node -v);   echo '📁 Listing /app contents:'; 
-ls -R /app;   echo '---------------------------------------------';  
-echo '🧩 Launching startupCheck.mjs...';  
-node ./scripts/startupCheck.js || { echo '❌ Node execution failed'; exit 1; };  
-echo '💤 Keeping container alive for Shiper logs...';   tail -f /dev/null " ]
+CMD [ "sh", "-c", "\
+  echo '✅ Dockerfile build finished successfully'; \
+  echo '🚀 Container runtime started at:' $(date); \
+  echo '---------------------------------------------'; \
+  echo '📂 Working Directory:' $(pwd); \
+  echo '📦 Node Version:' $(node -v); \
+  echo '📁 Listing /app contents:'; \
+  ls -R /app; \
+  echo '---------------------------------------------'; \
+  echo '🧩 Launching startupCheck.js...'; \
+  node ./scripts/startupCheck.js || { echo '❌ Node execution failed'; exit 1; }; \
+  echo '💤 Keeping container alive for Shiper logs...'; \
+  tail -f /dev/null \
+" ]
