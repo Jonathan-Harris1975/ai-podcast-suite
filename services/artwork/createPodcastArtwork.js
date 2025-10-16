@@ -28,7 +28,7 @@ export async function createPodcastArtwork({ sessionId, prompt }) {
     const key = `${sessionId}/cover.png`;
     await uploadBuffer(R2_BUCKET_ART, key, buffer, "image/png");
 
-    const publicUrl = `${process.env.R2_PUBLIC_BASE_URL_PODCAST}/${key}`;
+    const publicUrl = `${process.env.R2_PUBLIC_BASE_URL_ART}/${key}`;
     log("done", { key, publicUrl });
 
     return { ok: true, key, publicUrl };
