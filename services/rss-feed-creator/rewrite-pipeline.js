@@ -10,7 +10,7 @@ export async function runRewritePipeline() {
     const bucket = R2_BUCKETS.RSS_FEEDS;
 
     // 1️⃣  Load both text files from R2
-    const feedsTxt = await getObjectAsText(bucket, "feeds.txt);
+    const feedsTxt = await getObjectAsText(bucket, "feeds.txt");
     const urlsTxt = await getObjectAsText(bucket, "urls.txt");
 
     if (!feedsTxt || !urlsTxt) {
