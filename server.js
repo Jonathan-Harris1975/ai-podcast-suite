@@ -77,26 +77,13 @@ app.get("/", (_req, res) => {
 
     // --------------------------------------------------------
     // 📰 RSS Rewrite
-    // --------------------------------------------------------
-    try {
-      const { default: rssRoutes } = await import("./services/rss-feed-creator/routes/index.js");
-      app.use("/rss", rssRoutes); // exposes POST /rss/rewrite
-      log.info("🧩 Mounted: /rss/rewrite");
-    } catch (err) {
-      log.error("💥 RSS Rewrite route failed", { error: err.stack });
-    }
-
-    // --------------------------------------------------------
-    // 🎧 Podcast Health
-    // --------------------------------------------------------
-    try {
-      const { default: podcastHealthRouter } = await import("./routes/podcast-health.js");
-      app.use(podcastHealthRouter);
-      log.info("🎧 Mounted: /api/podcast/health");
-    } catch (err) {
-      log.error("💥 Podcast Health route failed", { error: err.stack });
-    }
-
+try {
+  const { default: rssRoutes } = await import("./services/rss-feed-creator/routes/index.js");
+  app.use("/rss", rssRoutes); // exposes POST /rss/rewrite
+  log.info("🧩 Mounted: /rss/rewrite");
+} catch (err) {
+  log.error("💥 RSS Rewrite route failed", { error: err.stack });
+}
     // --------------------------------------------------------
     // 🎙️ Podcast Main Route
     // --------------------------------------------------------
