@@ -6,13 +6,13 @@
 // ============================================================
 
 import { log } from "#shared/logger.js";
-import { runTTSOrchestrator } from "../tts/utils/orchestrator.js";
+import { processPodcastPipeline } from "../tts/utils/orchestrator.js";
 
 export async function runPipeline(payload = {}) {
   try {
     log.info("pipeline.start", { payloadKeys: Object.keys(payload) });
 
-    const result = await runTTSOrchestrator(payload);
+    const result = await processPodcastPipeline(payload.sessionId, payload.text);
 
     log.info("pipeline.complete", { success: true });
     return result;
