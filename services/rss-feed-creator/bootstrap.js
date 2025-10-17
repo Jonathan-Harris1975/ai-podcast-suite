@@ -1,42 +1,150 @@
-// services/rss-feed-creator/bootstrap.js
+// ============================================================
+// 🧠 AI Podcast Suite — Safe Bootstrap + RSS Feed Rotation
+// ============================================================
+//
+// 1️⃣ Safely rewrites only raw getObject() calls → getObjectAsText()
+//     • Does NOT touch import statements
+//     • Skips files that already define getObjectAsText()
+// 2️⃣ Reads feeds.txt + urls.txt
+//     • Rotates 5 feeds + 1 URL per batch
+//     • Writes active-feeds.json for build-rss.js
+//     • Persists feed-state.json for next cycle
+// ============================================================
+
 import fs from "fs";
 import path from "path";
-import { R2_BUCKETS, uploadBuffer } from "#shared/r2-client.js";
 import { log } from "#shared/logger.js";
 
-const DATA_DIR = path.join(process.cwd(), "services/rss-feed-creator/data");
+const projectRoot = "/app";
+const dataDir = path.join(projectRoot, "services/rss-feed-creator/data");
+const utilsDir = path.join(projectRoot, "services/rss-feed-creator/utils");
+const stateFile = path.join(utilsDir, "feed-state.json");
+const activeFile = path.join(utilsDir, "active-feeds.json");
 
-export async function uploadRssDataFiles() {
-  const feedFile = path.join(DATA_DIR, "feeds.txt");
-  const urlFile = path.join(DATA_DIR, "urls.txt");
-  const bucket = R2_BUCKETS.RSS_FEEDS;
+// ------------------------------------------------------------
+// 🧠 Step 1: Apply Safe R2 Patch
+// ------------------------------------------------------------
+function applySafeR2Patch() {
+  const patternCall = /([^a-zA-Z0-9_])getObject\(/g; // only replace function calls, not imports
+  const processed = [];
 
-  const files = [
-    { name: "feeds.txt", path: feedFile },
-    { name: "urls.txt", path: urlFile },
-  ];
+  function walk(dir) {
+    const entries = fs.readdirSync(dir);
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry);
+      const stat = fs.statSync(fullPath);
 
-  for (const file of files) {
-    if (!fs.existsSync(file.path)) {
-      log.error("rss.bootstrap.missingFile", { file: file.path });
-      continue;
+      if (stat.isDirectory()) {
+        if (
+          fullPath.includes("node_modules") ||
+          fullPath.includes(".git") ||
+          fullPath.includes("tmp")
+        ) continue;
+        walk(fullPath);
+        continue;
+      }
+
+      if (!entry.endsWith(".js")) continue;
+      let content = fs.readFileSync(fullPath, "utf-8");
+
+      // Skip if already defines or imports getObjectAsText
+      if (/getObjectAsText/.test(content)) continue;
+
+      // Process each non-import line safely
+      const lines = content.split("\n");
+      const updatedLines = lines.map((line) => {
+        if (line.trim().startsWith("import")) return line;
+        return line.replace(patternCall, "$1getObjectAsText(");
+      });
+      const updated = updatedLines.join("\n");
+
+      if (updated !== content) {
+        fs.writeFileSync(fullPath, updated, "utf-8");
+        processed.push(fullPath);
+      }
     }
-
-    const body = fs.readFileSync(file.path);
-    await uploadBuffer({
-      bucket,
-      key: file.name,
-      body,
-      contentType: "text/plain",
-    });
-
-    log.info("rss.bootstrap.uploaded", { bucket, key: file.name });
   }
 
-  log.info("rss.bootstrap.complete", { uploaded: files.length });
+  try {
+    log.info("🧠 Applying R2 Text Safety Patch (Safe Mode)...");
+    walk(projectRoot);
+    if (processed.length > 0) {
+      log.info("✅ R2 Text Safety Patch applied to:", processed);
+    } else {
+      log.info("✨ No updates required — safe definitions already exist.");
+    }
+  } catch (err) {
+    log.error("❌ Failed to apply R2 Text Safety Patch", { error: err.message });
+  }
 }
 
-// Called automatically by main bootstrap sequence
-if (process.env.SHIPER_BOOTSTRAP === "true") {
-  uploadRssDataFiles().catch(err => log.error("rss.bootstrap.fail", { error: err.message }));
+// ------------------------------------------------------------
+// 🌀 Step 2: Feed Rotation Logic
+// ------------------------------------------------------------
+function rotateFeeds() {
+  try {
+    const feedsPath = path.join(dataDir, "feeds.txt");
+    const urlsPath = path.join(dataDir, "urls.txt");
+
+    if (!fs.existsSync(feedsPath) || !fs.existsSync(urlsPath)) {
+      log.error("❌ Missing feeds.txt or urls.txt in data directory");
+      return;
+    }
+
+    const feeds = fs.readFileSync(feedsPath, "utf-8")
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    const urls = fs.readFileSync(urlsPath, "utf-8")
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    const batchSize = 5;
+    let state = { index: 0 };
+
+    if (fs.existsSync(stateFile)) {
+      try {
+        state = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
+      } catch {
+        state = { index: 0 };
+      }
+    }
+
+    const start = state.index;
+    const end = start + batchSize;
+    const currentFeeds = feeds.slice(start, end);
+    const currentUrl = urls[Math.floor(start / batchSize) % urls.length];
+    const nextIndex = end >= feeds.length ? 0 : end;
+
+    const activeData = {
+      feeds: currentFeeds,
+      url: currentUrl,
+      batchStart: start,
+      batchEnd: end,
+      totalFeeds: feeds.length,
+    };
+
+    fs.writeFileSync(stateFile, JSON.stringify({ index: nextIndex }, null, 2));
+    fs.writeFileSync(activeFile, JSON.stringify(activeData, null, 2));
+
+    log.info("🔁 RSS Feed Rotation Complete", {
+      feedsUsed: currentFeeds.length,
+      nextIndex,
+      currentUrl,
+    });
+  } catch (err) {
+    log.error("❌ RSS Feed Rotation failed", { error: err.message });
+  }
 }
+
+// ------------------------------------------------------------
+// 🚀 Execute Both
+// ------------------------------------------------------------
+try {
+  applySafeR2Patch();
+  rotateFeeds();
+} catch (err) {
+  log.error("❌ Failed during bootstrap sequence", { error: err.message });
+  }
