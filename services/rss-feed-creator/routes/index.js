@@ -1,18 +1,12 @@
 // ============================================================
-// 🧠 RSS Feed Creator — Routes (Stable Build)
+// 🧠 RSS Feed Creator — Routes (Correct)
+// ============================================================
+// POST /rss/rewrite → runs the rewrite pipeline
 // ============================================================
 
 import express from "express";
 import { runRewritePipeline } from "../rewrite-pipeline.js";
-
-// Safe import of logger regardless of export style
-let log;
-try {
-  const logger = await import("#shared/logger.js");
-  log = logger.log || logger.default || console;
-} catch {
-  log = console;
-}
+import { log } from "#shared/logger.js";
 
 const router = express.Router();
 
