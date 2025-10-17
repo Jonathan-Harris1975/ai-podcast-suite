@@ -13,6 +13,10 @@ import cors from "cors";
 import { log } from "#shared/logger.js";
 
 const app = express();
+const rssHealthRouter = express.Router();
+rssHealthRouter.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", service: "rss-feed-creator" });
+});
 const PORT = process.env.PORT || 3000;
 
 // ------------------------------------------------------------
@@ -22,23 +26,15 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+app.use("/api/rss", rssHealthRouter);
+log.info("✅ Route mounted: /api/rss/health");
+
 // ------------------------------------------------------------
 // 🧠 Dynamic Route Registration
 // ------------------------------------------------------------
 (async () => {
   try {
-    // ------------------------
-    // 🩺 RSS Health Route
-    // ------------------------
-    try {
-      const { default: rssHealthRouter } = await import("./routes/rss-health.js");
-      if (rssHealthRouter) {
-        app.use(rssHealthRouter); // defines /api/rss/health internally
-        log.info("✅ Route mounted: /api/rss/health");
-      }
-    } catch (err) {
-      log.error("❌ Failed to mount /api/rss/health", { error: err.message });
-    }
+
 
     // ------------------------
     // 🎙️ Podcast Route
@@ -46,8 +42,8 @@ app.use(express.urlencoded({ extended: true }));
     try {
       const { default: podcastRouter } = await import("./routes/podcast.js");
       if (podcastRouter) {
-        app.use("/podcast", podcastRouter); // correct for router.all("/")
-        log.info("✅ Route mounted: /podcast");
+        app.use("/api/podcast", podcastRouter); // correct for router.all("/")
+        log.info("✅ Route mounted: /api/podcast");
       }
     } catch (err) {
       log.error("❌ Failed to mount /podcast", { error: err.message });
@@ -56,7 +52,7 @@ app.use(express.urlencoded({ extended: true }));
     // ------------------------
     // 🔁 Run-Pipeline Route
     // ------------------------
-    app.post("/run-pipeline", async (req, res) => {
+    app.post("/api/rewrite/run", async (req, res) => {
       try {
         const { runPodcastPipeline } = await import("./services/podcast/runPodcastPipeline.js");
         if (typeof runPodcastPipeline !== "function") {
@@ -64,13 +60,13 @@ app.use(express.urlencoded({ extended: true }));
         }
         const result = await runPodcastPipeline(req.body?.sessionId || `TT-${Date.now()}`);
         res.status(200).json({ success: true, result });
-        log.info("✅ Route hit: /run-pipeline");
+        log.info("✅ Route hit: /api/rewrite/run");
       } catch (err) {
-        log.error("❌ run-pipeline error", { error: err.message });
+        log.error("❌ /api/rewrite/run error", { error: err.message });
         res.status(500).json({ success: false, error: err.message });
       }
     });
-    log.info("✅ Route mounted: /run-pipeline");
+    log.info("✅ Route mounted: /api/rewrite/run");
 
     // ------------------------------------------------------------
     // 🚀 Start Express Server
@@ -80,8 +76,9 @@ app.use(express.urlencoded({ extended: true }));
       log.info("---------------------------------------------");
       log.info("✅ Active Endpoints:");
       log.info("→ GET  /api/rss/health");
-      log.info("→ POST /run-pipeline");
-      log.info("→ ALL  /podcast");
+log.info("→ POST /api/rewrite/run");
+      
+      
       log.info("---------------------------------------------");
     });
   } catch (err) {
