@@ -2,6 +2,7 @@
 // 🌍 AI Podcast Suite — Server Bootstrap
 // ============================================================
 
+import "./scripts/envBootstrap.js";
 import express from "express";
 import cors from "cors";
 import { log } from "#shared/logger.js";
