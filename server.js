@@ -1,8 +1,16 @@
 // ============================================================
-// 🌍 AI Podcast Suite — Server Bootstrap
+// 🌍 AI Podcast Suite — Server Bootstrap (Final Stable Build)
+// ============================================================
+//
+// ✅ Includes:
+//   • RSS Health (simple heartbeat)
+//   • RSS Rewrite (runs rewrite pipeline)
+//   • Podcast Health
+//   • Podcast Main + Run Pipeline trigger
+//   • Express JSON, URL-encoded body parser, CORS
+//   • Dynamic route loading with full error isolation
 // ============================================================
 
-import "./scripts/envBootstrap.js";
 import express from "express";
 import cors from "cors";
 import { log } from "#shared/logger.js";
@@ -10,12 +18,16 @@ import { log } from "#shared/logger.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// ------------------------------------------------------------
+// 🧩 Middleware
+// ------------------------------------------------------------
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Root Health
+// ------------------------------------------------------------
+// 🩺 Root Health Check
+// ------------------------------------------------------------
 app.get("/", (_req, res) => {
   res.json({
     service: "AI Podcast Suite",
@@ -30,7 +42,9 @@ app.get("/", (_req, res) => {
   });
 });
 
-// Route Registration
+// ------------------------------------------------------------
+// ⚙️ Dynamic Route Registration
+// ------------------------------------------------------------
 (async () => {
   try {
     log.info("🚀 Starting route registration...");
@@ -44,7 +58,7 @@ app.get("/", (_req, res) => {
       log.error("💥 RSS Health route failed", { error: err.stack });
     }
 
-    // 📰 RSS Rewrite (feed creator service)
+    // 📰 RSS Rewrite
     try {
       const { default: rssRoutes } = await import("./services/rss-feed-creator/routes/index.js");
       app.use("/rss", rssRoutes);
@@ -65,28 +79,35 @@ app.get("/", (_req, res) => {
     // 🎙️ Podcast Main Route
     try {
       const { default: podcastRouter } = await import("./routes/podcast.js");
+      if (!podcastRouter) throw new Error("Missing default export in routes/podcast.js");
       app.use("/podcast", podcastRouter);
       log.info("🎙️ Mounted: /podcast");
     } catch (err) {
-      log.error("💥 Podcast route failed", { error: err.stack });
+      log.error("💥 Podcast route failed to load", { error: err.stack });
     }
 
-    // 🔁 Run Pipeline
-    app.post("/run-pipeline", async (req, res) => {
-      try {
-        const { default: runPipeline } = await import("./services/podcast/runPodcastPipeline.js");
-        const sessionId = req.body?.sessionId || `TT-${Date.now()}`;
-        log.info("🔁 run-pipeline triggered", { sessionId });
-        const result = await runPipeline(sessionId, req.body?.text);
-        res.json({ ok: true, sessionId, result });
-      } catch (err) {
-        log.error("💥 run-pipeline error", { error: err.message });
-        res.status(500).json({ ok: false, error: err.message });
-      }
-    });
-    log.info("🔁 Mounted: /run-pipeline");
+    // 🔁 Run Pipeline (manual trigger)
+    try {
+      app.post("/run-pipeline", async (req, res) => {
+        try {
+          const { default: runPipeline } = await import("./services/podcast/runPodcastPipeline.js");
+          const sessionId = req.body?.sessionId || `TT-${Date.now()}`;
+          log.info("🔁 run-pipeline triggered", { sessionId });
+          const result = await runPipeline(sessionId, req.body?.text);
+          res.json({ ok: true, sessionId, result });
+        } catch (err) {
+          log.error("💥 run-pipeline error", { error: err.message });
+          res.status(500).json({ ok: false, error: err.message });
+        }
+      });
+      log.info("🔁 Mounted: /run-pipeline");
+    } catch (err) {
+      log.error("💥 Run Pipeline mount failed", { error: err.stack });
+    }
 
-    // Start Server
+    // --------------------------------------------------------
+    // 🚀 Final Startup Confirmation
+    // --------------------------------------------------------
     app.listen(PORT, () => {
       log.info("🌍 Server started successfully");
       log.info("---------------------------------------------");
@@ -99,7 +120,7 @@ app.get("/", (_req, res) => {
       log.info("---------------------------------------------");
     });
   } catch (outerErr) {
-    log.error("💥 Fatal startup error", { error: outerErr.stack });
+    log.error("💥 Fatal server startup error", { error: outerErr.stack });
     process.exit(1);
   }
 })();
