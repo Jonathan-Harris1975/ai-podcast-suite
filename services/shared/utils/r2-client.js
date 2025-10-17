@@ -3,8 +3,8 @@
 // ============================================================
 //
 // - Centralized S3Client config for Cloudflare R2
-// - Includes upload, download, list, and stream helpers
-// - Provides getR2ReadStream (required by TTS Merge Processor)
+// - Upload / download / list helpers
+// - Stream helper for ffmpeg
 // ============================================================
 
 import {
@@ -40,7 +40,7 @@ export const s3 = new S3Client({
   },
 });
 
-// Backward compatibility alias
+// Back-compat alias
 export const r2Client = s3;
 
 // ------------------------------------------------------------
@@ -75,6 +75,18 @@ export async function uploadBuffer({ bucket, key, body, contentType }) {
     error("r2.uploadBuffer.fail", { bucket, key, error: err.message });
     throw err;
   }
+}
+
+// Back-compat simple helper (string/Buffer)
+export async function uploadFileToR2(bucket, key, content, contentType) {
+  const body =
+    typeof content === "string" ? Buffer.from(content) : Buffer.from(content);
+  return uploadBuffer({
+    bucket,
+    key,
+    body,
+    contentType: contentType || "application/octet-stream",
+  });
 }
 
 export async function putJson(bucket, key, data) {
@@ -122,19 +134,17 @@ export async function getObjectAsText(bucket, key) {
 }
 
 // ------------------------------------------------------------
-// 🔥 getR2ReadStream — Required by TTS mergeprocessor.js
+// 🔥 Stream helper — for ffmpeg etc.
 // ------------------------------------------------------------
 export async function getR2ReadStream(bucket, key) {
   try {
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
     const response = await s3.send(command);
-
     if (!response.Body) {
       throw new Error(`No body returned for ${key} in bucket ${bucket}`);
     }
-
     info("r2.getR2ReadStream.success", { bucket, key });
-    return response.Body; // ✅ returns a readable stream
+    return response.Body; // readable stream
   } catch (err) {
     error("r2.getR2ReadStream.fail", { bucket, key, error: err.message });
     throw err;
@@ -156,4 +166,4 @@ export async function listKeys({ bucket, prefix }) {
     error("r2.listKeys.fail", { bucket, prefix, error: err.message });
     throw err;
   }
-    }
+                                        }
