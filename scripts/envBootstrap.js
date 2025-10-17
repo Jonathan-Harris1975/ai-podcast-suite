@@ -1,5 +1,5 @@
 
-// /bootstrap/envBootstrap.js
+///envBootstrap.js
 import os from "os";
 import process from "process";
 import { validateEnv } from "../utils/envChecker.js";
