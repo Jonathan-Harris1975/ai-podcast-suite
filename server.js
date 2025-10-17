@@ -1,5 +1,5 @@
 // ============================================================
-// 🌍 AI Podcast Suite — Main Server (Final Mount Verification)
+// 🌍 AI Podcast Suite — Main Server (Stable with Podcast Check)
 // ============================================================
 
 import express from "express";
@@ -17,24 +17,50 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ------------------------------------------------------------
-// 🧩 Dynamic Route Loader
+// 🩺 Health Root (quick check)
+// ------------------------------------------------------------
+app.get("/", (_req, res) => {
+  res.json({
+    service: "AI Podcast Suite",
+    status: "online",
+    endpoints: [
+      "/api/rss/health",
+      "/api/podcast/health",
+      "/podcast",
+      "/run-pipeline",
+    ],
+  });
+});
+
+// ------------------------------------------------------------
+// 🧠 Dynamic Route Loader
 // ------------------------------------------------------------
 (async () => {
   try {
     // 🩺 RSS Health
-    const { default: rssHealthRouter } = await import("./routes/rss-health.js");
-    app.use(rssHealthRouter);
-    log.info("✅ Route mounted: /api/rss/health");
+    try {
+      const { default: rssHealthRouter } = await import("./routes/rss-health.js");
+      app.use(rssHealthRouter);
+      log.info("✅ Route mounted: /api/rss/health");
+    } catch (err) {
+      log.error("❌ Failed to mount /api/rss/health", { error: err.message });
+    }
 
-    // 🎙️ Podcast
+    // 🎧 Podcast Health
+    try {
+      const { default: podcastHealthRouter } = await import("./routes/podcast-health.js");
+      app.use(podcastHealthRouter);
+      log.info("✅ Route mounted: /api/podcast/health");
+    } catch (err) {
+      log.warn("⚠️ Podcast health route not found (optional).");
+    }
+
+    // 🎙️ Podcast Main Route
     try {
       const { default: podcastRouter } = await import("./routes/podcast.js");
-      if (podcastRouter) {
-        app.use("/podcast", podcastRouter);
-        log.info("✅ Route mounted: /podcast");
-      } else {
-        log.warn("⚠️ podcastRouter export missing");
-      }
+      if (!podcastRouter) throw new Error("Missing default export in podcast.js");
+      app.use("/podcast", podcastRouter);
+      log.info("✅ Route mounted: /podcast");
     } catch (err) {
       log.error("❌ Failed to mount /podcast", { error: err.message });
     }
@@ -55,13 +81,14 @@ app.use(express.urlencoded({ extended: true }));
     log.info("✅ Route mounted: /run-pipeline");
 
     // ------------------------------------------------------------
-    // 🚀 Start Server
+    // 🚀 Start Express Server
     // ------------------------------------------------------------
     app.listen(PORT, () => {
       log.info(`🌍 AI Podcast Suite server running on port ${PORT}`);
       log.info("---------------------------------------------");
       log.info("✅ Active Endpoints:");
       log.info("→ GET  /api/rss/health");
+      log.info("→ GET  /api/podcast/health");
       log.info("→ ALL  /podcast");
       log.info("→ POST /run-pipeline");
       log.info("---------------------------------------------");
