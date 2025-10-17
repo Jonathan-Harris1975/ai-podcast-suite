@@ -1,13 +1,25 @@
-// services/rss-feed-creator/index.js
-import { uploadRssDataFiles } from "./bootstrap.js";
-import { runRewritePipeline } from "./rewrite-pipeline.js";
+// ============================================================
+// 🧠 RSS Feed Creator — Routes
+// ============================================================
+// Exposes an HTTP endpoint for the rewrite pipeline
+// POST /rss/rewrite → triggers runRewritePipeline()
+// ============================================================
+
+import express from "express";
+import { runRewritePipeline } from "../rewrite-pipeline.js";
 import { log } from "#shared/logger.js";
 
-export async function startFeedCreator() {
-  log.info("rss.pipeline.start");
-  await uploadRssDataFiles();     // 1) seed R2 with feeds.txt and urls.txt
-  await runRewritePipeline();     // 2) rotate + build
-  log.info("rss.pipeline.complete");
-}
+const router = express.Router();
 
-export default startFeedCreator;
+router.post("/rewrite", async (_req, res) => {
+  log.info("rss.rewrite.trigger");
+  try {
+    const result = await runRewritePipeline();
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    log.error("rss.rewrite.fail", { error: err.message });
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+export default router;
