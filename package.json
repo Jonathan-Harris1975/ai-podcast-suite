@@ -35,8 +35,9 @@
   },
 
   "imports": {
-    "#shared/*": "./services/shared/utils/*"
-  },
+  "#shared/*": "./services/shared/utils/*",
+  "#routes/*": "./routes/*"
+},
 
   "devDependencies": {
     "supertest": "^7.0.0"
