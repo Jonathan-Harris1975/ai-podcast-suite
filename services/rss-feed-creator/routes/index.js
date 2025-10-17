@@ -1,13 +1,13 @@
-// services/rss-feed-creator/routes/index.js
-import { s3, R2_BUCKETS, uploadBuffer, listKeys, getObjectAsText } from "#shared/r2-client.js";
-import express from "express";
-import { log } from "#shared/logger.js"; // ⬅ fix this path
+// services/rss-feed-creator/index.js
+import { uploadRssDataFiles } from "./bootstrap.js";
+import { runRewritePipeline } from "./rewrite-pipeline.js";
+import { log } from "#shared/logger.js";
 
-const router = express.Router();
+export async function startFeedCreator() {
+  log.info("rss.pipeline.start");
+  await uploadRssDataFiles();     // 1) seed R2 with feeds.txt and urls.txt
+  await runRewritePipeline();     // 2) rotate + build
+  log.info("rss.pipeline.complete");
+}
 
-router.get("/", (req, res) => {
-  log.info("rss.root");
-  res.json({ ok: true, service: "rss-feed-creator" });
-});
-
-export default router;
+export default startFeedCreator;
