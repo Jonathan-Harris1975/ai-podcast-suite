@@ -1,18 +1,18 @@
 // ============================================================
-// 🧠 AI Podcast Suite — Main Server
+// 🧠 AI Podcast Suite — Main Server (Final Stable Build)
 // ============================================================
 //
-// Ensures correct Express initialization order.
-// Dynamically loads runPodcastPipeline to avoid import errors.
+// Prevents early variable access (ReferenceError).
+// Initializes Express before any route/middleware.
+// Dynamically loads orchestrator only when invoked.
 // ============================================================
 
 import express from "express";
 import cors from "cors";
 import { log } from "#shared/logger.js";
-import rssHealthRouter from "./routes/rss-health.js";
 
 // ------------------------------------------------------------
-// ⚙️ Initialize Express before any .use() calls
+// ⚙️ Initialize Express FIRST
 // ------------------------------------------------------------
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,31 +22,35 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ------------------------------------------------------------
-// 🌐 Routes
+// 🧩 Safe Lazy Imports (after app is defined)
 // ------------------------------------------------------------
-app.use("/rss-health", rssHealthRouter);
-
-// Dynamic import avoids hard failure if file missing or unexported
-app.post("/run-pipeline", async (req, res) => {
+(async () => {
   try {
-    const { runPipeline } = await import("./services/podcast/runPodcastPipeline.js");
-    if (typeof runPipeline !== "function") {
-      throw new Error("runPipeline() not exported from runPodcastPipeline.js");
-    }
+    const { default: rssHealthRouter } = await import("./routes/rss-health.js");
+    app.use("/rss-health", rssHealthRouter);
 
-    const result = await runPipeline(req.body || {});
-    res.status(200).json({ success: true, result });
+    app.post("/run-pipeline", async (req, res) => {
+      try {
+        const { runPipeline } = await import("./services/podcast/runPodcastPipeline.js");
+        if (typeof runPipeline !== "function") {
+          throw new Error("runPipeline() not exported from runPodcastPipeline.js");
+        }
+
+        const result = await runPipeline(req.body || {});
+        res.status(200).json({ success: true, result });
+      } catch (err) {
+        log.error("❌ run-pipeline route failed", { error: err.message });
+        res.status(500).json({ success: false, error: err.message });
+      }
+    });
+
+    // ------------------------------------------------------------
+    // 🚀 Start Server only after all routes load
+    // ------------------------------------------------------------
+    app.listen(PORT, () => {
+      log.info(`🌍 AI Podcast Suite server running on port ${PORT}`);
+    });
   } catch (err) {
-    log.error("❌ run-pipeline route failed", { error: err.message });
-    res.status(500).json({ success: false, error: err.message });
+    log.error("❌ Server startup failed", { error: err.message });
   }
-});
-
-// ------------------------------------------------------------
-// 🚀 Server Startup
-// ------------------------------------------------------------
-app.listen(PORT, () => {
-  log.info(`🌍 AI Podcast Suite running on port ${PORT}`);
-});
-
-export default app;
+})();
