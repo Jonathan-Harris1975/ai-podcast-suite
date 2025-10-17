@@ -1,103 +1,115 @@
 // ============================================================
-// 🧠 AI Podcast Suite — Clean RSS Feed Builder (Minimal Layout)
+// 🧠 RSS Feed Creator — Build RSS Feed
 // ============================================================
 //
-// Generates a valid RSS feed with no visible title/description
-// Each item includes only GUID, link, and optional content.
-// Works with Make.com + FeedFlow + TTS ingestion.
-//
+// Reads `utils/active-feeds.json` (feeds + target URL)
+// Fetches each feed, merges items, and writes final RSS XML
+// to R2 (in RSS_FEEDS or META bucket).
 // ============================================================
 
 import fs from "fs";
 import path from "path";
-import { nanoid } from "nanoid";
+import Parser from "rss-parser";
 import { log } from "#shared/logger.js";
-import { R2_BUCKETS, putText } from "#shared/r2-client.js";
+import {
+  R2_BUCKETS,
+  putText,
+} from "#shared/r2-client.js";
 
-// ------------------------------------------------------------
-// Helper: Build RSS XML
-// ------------------------------------------------------------
-function buildMinimalRSS(items, feedInfo = {}) {
-  const now = new Date().toUTCString();
-  const {
-    title = "AI Feed Stream",
-    link = "https://ai-news.jonathan-harris.online",
-    description = "Automated AI Feed Stream",
-  } = feedInfo;
+const parser = new Parser();
 
-  const rssItems = items
-    .map((item) => {
-      const guid = item.guid || `AI-${nanoid(8)}`;
-      const pubDate = new Date(item.pubDate || Date.now()).toUTCString();
+const projectRoot = "/app";
+const utilsDir = path.join(projectRoot, "services/rss-feed-creator/utils");
+const activeFile = path.join(utilsDir, "active-feeds.json");
 
-      return `
-        <item>
-          <guid>${guid}</guid>
-          <link>${item.url || ""}</link>
-          <pubDate>${pubDate}</pubDate>
-          ${
-            item.content
-              ? `<content:encoded><![CDATA[${item.content}]]></content:encoded>`
-              : ""
-          }
-        </item>`;
-    })
-    .join("\n");
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-  <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
-    <channel>
-      <title>${title}</title>
-      <link>${link}</link>
-      <description>${description}</description>
-      <language>en-gb</language>
-      <lastBuildDate>${now}</lastBuildDate>
-      ${rssItems}
-    </channel>
-  </rss>`;
+function resolveBucket() {
+  return R2_BUCKETS.RSS_FEEDS || R2_BUCKETS.META;
 }
 
 // ------------------------------------------------------------
-// 🧩 Build + Upload Feed
+// 🧩 Build RSS Feed
 // ------------------------------------------------------------
-export async function buildAndUploadMinimalFeed(activeData) {
+export async function buildRssFeed() {
   try {
-    const { feeds = [], url = "" } = activeData;
-
-    if (!feeds.length || !url) {
-      log.error("rss.build.missingData", { feeds: feeds.length, url });
-      return;
+    // Ensure active-feeds.json exists
+    if (!fs.existsSync(activeFile)) {
+      throw new Error("active-feeds.json missing — run apply-r2-text-safety.js first");
     }
 
-    log.info("rss.build.start", { feedsUsed: feeds.length, outputUrl: url });
+    const { feeds, url } = JSON.parse(fs.readFileSync(activeFile, "utf-8"));
+    if (!feeds?.length || !url) {
+      throw new Error("Invalid active-feeds.json — missing feeds or url");
+    }
 
-    const items = feeds.map((feed) => ({
-      url: feed.link || feed.url || "",
-      guid: feed.guid || `RSS-${nanoid(8)}`,
-      pubDate: feed.pubDate || new Date().toISOString(),
-      content: feed.summary || feed.contentSnippet || "",
-    }));
+    log.info("rss.build.start", { feedsCount: feeds.length, targetUrl: url });
 
-    const rssXml = buildMinimalRSS(items, {
-      title: "AI News Stream",
-      link: url,
-      description: "Automated minimal feed for AI Podcast Suite",
+    const allItems = [];
+
+    for (const feedUrl of feeds) {
+      try {
+        const parsed = await parser.parseURL(feedUrl);
+        const items = parsed.items?.slice(0, 10) || [];
+        allItems.push(...items);
+      } catch (err) {
+        log.warn("rss.build.feed.fail", { feedUrl, error: err.message });
+      }
+    }
+
+    // Sort items by publication date
+    const sortedItems = allItems.sort((a, b) => {
+      const d1 = new Date(a.isoDate || a.pubDate || 0).getTime();
+      const d2 = new Date(b.isoDate || b.pubDate || 0).getTime();
+      return d2 - d1;
     });
 
-    const filename = path.basename(url).replace(".xml", "") + ".xml";
-    const bucket = R2_BUCKETS.RSS_FEEDS || R2_BUCKETS.META;
+    const rssXml = generateRssXml(sortedItems, url);
+    const bucket = resolveBucket();
+    const key = `feeds/rss-${Date.now()}.xml`;
 
-    await putText(bucket, filename, rssXml, "application/rss+xml");
+    await putText(bucket, key, rssXml, "application/rss+xml; charset=utf-8");
 
-    log.info("rss.build.uploaded", { bucket, filename });
-    return { success: true, bucket, filename };
+    log.info("rss.build.complete", {
+      items: sortedItems.length,
+      bucket,
+      key,
+    });
+
+    return { xml: rssXml, key };
   } catch (err) {
-    log.error("rss.build.failed", { error: err.message });
+    log.error("rss.build.fail", { error: err.message });
     throw err;
   }
 }
 
 // ------------------------------------------------------------
-// 🧩 Backward Compatibility Export (Legacy Alias)
+// 🧠 RSS XML Generator
 // ------------------------------------------------------------
-export const rebuildRss = buildAndUploadMinimalFeed;
+function generateRssXml(items, siteUrl) {
+  const header = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n<channel>\n<title>AI Podcast Suite Aggregator</title>\n<link>${siteUrl}</link>\n<description>Latest AI feeds merged by AI Podcast Suite</description>\n<language>en</language>\n<lastBuildDate>${new Date().toUTCString()}</lastBuildDate>\n`;
+
+  const entries = items
+    .map((item) => {
+      const title = escapeXml(item.title || "Untitled");
+      const link = escapeXml(item.link || siteUrl);
+      const description = escapeXml(item.contentSnippet || item.content || "");
+      const pubDate = new Date(item.isoDate || item.pubDate || Date.now()).toUTCString();
+
+      return `<item>\n<title>${title}</title>\n<link>${link}</link>\n<description>${description}</description>\n<pubDate>${pubDate}</pubDate>\n</item>`;
+    })
+    .join("\n");
+
+  const footer = "\n</channel>\n</rss>\n";
+  return header + entries + footer;
+}
+
+// ------------------------------------------------------------
+// 🧹 Utility — Safe XML escaping
+// ------------------------------------------------------------
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
