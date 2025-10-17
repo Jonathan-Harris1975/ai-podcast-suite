@@ -1,11 +1,11 @@
 // ============================================================
-// 🌍 AI Podcast Suite — Main Server (Final Fixed Version)
+// 🌍 AI Podcast Suite — Server Bootstrap (Final Stable Build)
 // ============================================================
 //
 // ✅ Fixes:
-//  • Correct relative import paths (no more /services/... errors)
-//  • Robust error handling for all routes
-//  • Emoji-first log order for Shiper visibility
+//  • Detailed error logging for podcast route
+//  • Emoji-first pino-pretty formatting
+//  • Stable ESM imports & absolute-safe paths
 // ============================================================
 
 import express from "express";
@@ -23,7 +23,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ------------------------------------------------------------
-// 🩺 Root Health
+// 🩺 Root Health Check
 // ------------------------------------------------------------
 app.get("/", (_req, res) => {
   res.json({
@@ -39,70 +39,60 @@ app.get("/", (_req, res) => {
 });
 
 // ------------------------------------------------------------
-// ⚙️ Dynamic Route Loader
+// ⚙️ Dynamic Route Registration
 // ------------------------------------------------------------
 (async () => {
   try {
     log.info("🚀 Starting route registration...");
 
-    // --------------------------------------------------------
-    // 🧠 RSS Health Route
-    // --------------------------------------------------------
+    // 🧠 RSS Health
     try {
       const { default: rssHealthRouter } = await import("./routes/rss-health.js");
       app.use(rssHealthRouter);
       log.info("🧩 Mounted: /api/rss/health");
     } catch (err) {
-      log.error("❌ RSS Health route failed to load", { error: err.stack });
+      log.error("💥 RSS Health route failed", { error: err.stack });
     }
 
-    // --------------------------------------------------------
-    // 🎧 Podcast Health Route
-    // --------------------------------------------------------
+    // 🎧 Podcast Health
     try {
       const { default: podcastHealthRouter } = await import("./routes/podcast-health.js");
       app.use(podcastHealthRouter);
       log.info("🎧 Mounted: /api/podcast/health");
     } catch (err) {
-      log.error("❌ Podcast Health route failed to load", { error: err.stack });
+      log.error("💥 Podcast Health route failed", { error: err.stack });
     }
 
-    // --------------------------------------------------------
-    // 🎙️ Podcast Route
-    // --------------------------------------------------------
+    // 🎙️ Podcast Main Route
     try {
       const { default: podcastRouter } = await import("./routes/podcast.js");
-      if (!podcastRouter) throw new Error("Missing default export in podcast.js");
+      if (!podcastRouter) throw new Error("Missing default export in routes/podcast.js");
       app.use("/podcast", podcastRouter);
       log.info("🎙️ Mounted: /podcast");
     } catch (err) {
-      log.error("❌ Podcast route failed to load", { error: err.stack });
+      log.error("💥 Podcast route failed to load", { error: err.stack });
     }
 
-    // --------------------------------------------------------
-    // 🔁 Run-Pipeline Route
-    // --------------------------------------------------------
+    // 🔁 Run Pipeline (manual trigger)
     try {
       app.post("/run-pipeline", async (req, res) => {
         const sessionId = req.body?.sessionId || `TT-${Date.now()}`;
         try {
           const { runPodcastPipeline } = await import("./services/podcast/runPodcastPipeline.js");
-          const result = await runPodcastPipeline(sessionId);
-          res.status(200).json({ ok: true, result });
-          log.info("🔁 Route hit: /run-pipeline", { sessionId });
+          await runPodcastPipeline(sessionId);
+          log.info("🔁 run-pipeline triggered", { sessionId });
+          res.status(200).json({ ok: true, sessionId });
         } catch (err) {
-          log.error("💥 run-pipeline error", { error: err.message });
+          log.error("💥 run-pipeline error", { error: err.stack });
           res.status(500).json({ ok: false, error: err.message });
         }
       });
       log.info("🔁 Mounted: /run-pipeline");
     } catch (err) {
-      log.error("❌ Run-Pipeline route failed to load", { error: err.stack });
+      log.error("💥 Run-pipeline route failed", { error: err.stack });
     }
 
-    // --------------------------------------------------------
-    // 🚀 Start Express Server
-    // --------------------------------------------------------
+    // 🌍 Start Server
     app.listen(PORT, () => {
       log.info("🌍 Server started successfully", { port: PORT });
       log.info("---------------------------------------------");
