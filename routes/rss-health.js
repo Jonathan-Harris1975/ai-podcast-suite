@@ -1,30 +1,27 @@
+// ============================================================
+// 🧠 AI Podcast Suite — Basic RSS Health Route
+// ============================================================
+//
+// Purpose: lightweight "keep-alive" / uptime endpoint
+// No external service calls — just confirms the container is awake.
+// ============================================================
+
 import express from "express";
-import { R2_BUCKETS, getObjectAsText } from "#shared/r2-client.js";
-import { info, error } from "#shared/logger.js";
+import { info } from "#shared/logger.js";
 
 const router = express.Router();
 
-router.get("/api/rss/health", async (_req, res) => {
-  try {
-    const b = R2_BUCKETS.RSS_FEEDS || R2_BUCKETS.META;
-    const active = await getObjectAsText(b, "utils/active-feeds.json");
-    const state = await getObjectAsText(b, "utils/feed-state.json");
+router.get("/api/rss/health", (_req, res) => {
+  const now = new Date().toISOString();
+  info("🧠 RSS basic health check", { ok: true, time: now });
 
-    const ok = Boolean(active && state);
-    info("🧠 RSS health check", { ok });
-
-    return res.json({
-      ok,
-      details: {
-        activePresent: !!active,
-        statePresent: !!state,
-        bucket: b,
-      },
-    });
-  } catch (err) {
-    error("💥 RSS health failed", { error: err.message });
-    return res.status(500).json({ ok: false, error: err.message });
-  }
+  return res.json({
+    ok: true,
+    service: "rss",
+    status: "awake",
+    timestamp: now,
+    message: "AI Podcast Suite RSS health endpoint active",
+  });
 });
 
 export default router;
