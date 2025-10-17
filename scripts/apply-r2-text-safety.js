@@ -23,8 +23,10 @@ const activeFile = path.join(utilsDir, "active-feeds.json");
 // ------------------------------------------------------------
 function applySafeR2Patch() {
   const processed = [];
+
+  // ✅ Correct regex syntax — valid negative lookbehind in Node 22
   const patternImport = /getObject(?!AsText)/g;
-  const patternCall = /(?<!AsText)\\bgetObject\\(/g; // avoid already-correct calls
+  const patternCall = /(?<!AsText\b)getObject\(/g; // avoid already-correct calls
 
   function walk(dir) {
     const entries = fs.readdirSync(dir);
@@ -43,10 +45,13 @@ function applySafeR2Patch() {
       } else if (name.endsWith(".js")) {
         let content = fs.readFileSync(full, "utf8");
 
-        // Skip if this file already declares getObjectAsText
-        if (/function\\s+getObjectAsText|export\\s+async\\s+function\\s+getObjectAsText/.test(content)) {
+        // Skip if file already defines getObjectAsText
+        if (
+          /function\s+getObjectAsText|export\s+async\s+function\s+getObjectAsText/.test(
+            content
+          )
+        )
           continue;
-        }
 
         const updated = content
           .replace(patternImport, "getObjectAsText")
@@ -88,10 +93,16 @@ function rotateFeeds() {
       return;
     }
 
-    const feeds = fs.readFileSync(feedsPath, "utf-8")
-      .split("\n").map((s) => s.trim()).filter(Boolean);
-    const urls = fs.readFileSync(urlsPath, "utf-8")
-      .split("\n").map((s) => s.trim()).filter(Boolean);
+    const feeds = fs
+      .readFileSync(feedsPath, "utf-8")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const urls = fs
+      .readFileSync(urlsPath, "utf-8")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
 
     const batchSize = 5;
     let state = { index: 0 };
@@ -141,4 +152,4 @@ try {
   rotateFeeds();
 } catch (err) {
   log.error("❌ Failed during bootstrap sequence", { error: err.message });
-                       }
+}
