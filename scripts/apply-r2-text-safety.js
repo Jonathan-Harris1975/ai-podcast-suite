@@ -2,10 +2,13 @@
 // 🧠 AI Podcast Suite — Safe Bootstrap + RSS Feed Rotation
 // ============================================================
 //
-// 1️⃣ Ensures all unsafe getObject() calls use getObjectAsText()
-// 2️⃣ Reads feeds.txt + urls.txt, rotates batches of 5 feeds + 1 URL
-// 3️⃣ Writes active-feeds.json for build-rss.js
-// 4️⃣ Keeps state in feed-state.json
+// 1️⃣ Safely rewrites only raw getObject() calls → getObjectAsText()
+//     • Does NOT touch import statements
+//     • Skips files that already define getObjectAsText()
+// 2️⃣ Reads feeds.txt + urls.txt
+//     • Rotates 5 feeds + 1 URL per batch
+//     • Writes active-feeds.json for build-rss.js
+//     • Persists feed-state.json for next cycle
 // ============================================================
 
 import fs from "fs";
@@ -22,14 +25,13 @@ const activeFile = path.join(utilsDir, "active-feeds.json");
 // 🧠 Step 1: Apply Safe R2 Patch
 // ------------------------------------------------------------
 function applySafeR2Patch() {
-  const patternImport = /getObject(?!AsText)/g;
-  const patternCall = /getObject\(/g;
+  const patternCall = /([^a-zA-Z0-9_])getObject\(/g; // only replace function calls, not imports
   const processed = [];
 
   function walk(dir) {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      const fullPath = path.join(dir, file);
+    const entries = fs.readdirSync(dir);
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry);
       const stat = fs.statSync(fullPath);
       if (stat.isDirectory()) {
         if (
@@ -39,20 +41,27 @@ function applySafeR2Patch() {
         )
           continue;
         walk(fullPath);
-      } else if (file.endsWith(".js")) {
-        let content = fs.readFileSync(fullPath, "utf-8");
-        if (/function\s+getObjectAsText/.test(content)) continue;
+        continue;
+      }
 
-        if (patternImport.test(content) || patternCall.test(content)) {
-          const updated = content
-            .replace(patternImport, "getObjectAsText")
-            .replace(patternCall, "getObjectAsText(");
+      if (!entry.endsWith(".js")) continue;
 
-          if (updated !== content) {
-            fs.writeFileSync(fullPath, updated, "utf-8");
-            processed.push(fullPath);
-          }
-        }
+      let content = fs.readFileSync(fullPath, "utf-8");
+
+      // Skip patch if getObjectAsText already defined or imported
+      if (/getObjectAsText/.test(content)) continue;
+
+      // Skip import lines entirely
+      const lines = content.split("\n");
+      const updatedLines = lines.map((line) => {
+        if (line.trim().startsWith("import")) return line;
+        return line.replace(patternCall, "$1getObjectAsText(");
+      });
+      const updated = updatedLines.join("\n");
+
+      if (updated !== content) {
+        fs.writeFileSync(fullPath, updated, "utf-8");
+        processed.push(fullPath);
       }
     }
   }
@@ -83,12 +92,13 @@ function rotateFeeds() {
 
     const feeds = fs
       .readFileSync(feedsPath, "utf-8")
-      .split("\n")
+      .split(/\r?\n/)
       .map((x) => x.trim())
       .filter(Boolean);
+
     const urls = fs
       .readFileSync(urlsPath, "utf-8")
-      .split("\n")
+      .split(/\r?\n/)
       .map((x) => x.trim())
       .filter(Boolean);
 
@@ -97,46 +107,4 @@ function rotateFeeds() {
 
     if (fs.existsSync(stateFile)) {
       try {
-        state = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
-      } catch {
-        state = { index: 0 };
-      }
-    }
-
-    const start = state.index;
-    const end = start + batchSize;
-    const currentFeeds = feeds.slice(start, end);
-    const currentUrl = urls[Math.floor(start / batchSize) % urls.length];
-
-    const nextIndex = end >= feeds.length ? 0 : end;
-
-    const activeData = {
-      feeds: currentFeeds,
-      url: currentUrl,
-      batchStart: start,
-      batchEnd: end,
-      totalFeeds: feeds.length,
-    };
-
-    fs.writeFileSync(stateFile, JSON.stringify({ index: nextIndex }, null, 2));
-    fs.writeFileSync(activeFile, JSON.stringify(activeData, null, 2));
-
-    log.info("🔁 RSS Feed Rotation Complete", {
-      feedsUsed: currentFeeds.length,
-      nextIndex,
-      currentUrl,
-    });
-  } catch (err) {
-    log.error("❌ RSS Feed Rotation failed", { error: err.message });
-  }
-}
-
-// ------------------------------------------------------------
-// 🚀 Execute Both
-// ------------------------------------------------------------
-try {
-  applySafeR2Patch();
-  rotateFeeds();
-} catch (err) {
-  log.error("❌ Failed during bootstrap sequence", { error: err.message });
-      }
+        state = JSON.parse(fs.readFileSync(stateFile,
