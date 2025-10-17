@@ -1,9 +1,4 @@
-// ============================================================
-// 🧠 RSS Feed Creator — Routes (Correct)
-// ============================================================
-// POST /rss/rewrite → runs the rewrite pipeline
-// ============================================================
-
+// services/rss-feed-creator/routes/index.js
 import express from "express";
 import { runRewritePipeline } from "../rewrite-pipeline.js";
 import { log } from "#shared/logger.js";
