@@ -2,13 +2,10 @@
 // 🧠 AI Podcast Suite — Safe Bootstrap + RSS Feed Rotation
 // ============================================================
 //
-// 1) Safely rewrites only raw getObject() calls → getObjectAsText()
-//    • Does NOT touch import statements
-//    • Skips files that already reference getObjectAsText
-// 2) Reads feeds.txt + urls.txt
-//    • Rotates 5 feeds + 1 URL per batch
-//    • Writes utils/active-feeds.json for build-rss.js
-//    • Persists utils/feed-state.json for next cycle
+// 1) Ensures unsafe getObject() calls use getObjectAsText()
+// 2) Reads feeds.txt + urls.txt, rotates 5 feeds + 1 URL
+// 3) Writes utils/active-feeds.json for build-rss.js
+// 4) Persists index in utils/feed-state.json
 // ============================================================
 
 import fs from "fs";
@@ -22,48 +19,43 @@ const stateFile = path.join(utilsDir, "feed-state.json");
 const activeFile = path.join(utilsDir, "active-feeds.json");
 
 // ------------------------------------------------------------
-// Step 1: Apply Safe R2 Patch
+// 🧠 Step 1: Apply Safe R2 Patch
 // ------------------------------------------------------------
 function applySafeR2Patch() {
-  // Replace only *function calls* "getObject(" with "getObjectAsText("
-  // The leading capture avoids matching identifiers like mygetObject(
-  const patternCall = /(^|[^a-zA-Z0-9_])getObject\(/g;
   const processed = [];
+  const patternImport = /getObject(?!AsText)/g;
+  const patternCall = /(?<!AsText)\\bgetObject\\(/g; // avoid already-correct calls
 
   function walk(dir) {
     const entries = fs.readdirSync(dir);
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry);
-      const stat = fs.statSync(fullPath);
+    for (const name of entries) {
+      const full = path.join(dir, name);
+      const stat = fs.statSync(full);
 
       if (stat.isDirectory()) {
         if (
-          fullPath.includes("node_modules") ||
-          fullPath.includes(".git") ||
-          fullPath.includes("tmp")
-        ) {
+          full.includes("node_modules") ||
+          full.includes(".git") ||
+          full.includes("tmp")
+        )
+          continue;
+        walk(full);
+      } else if (name.endsWith(".js")) {
+        let content = fs.readFileSync(full, "utf8");
+
+        // Skip if this file already declares getObjectAsText
+        if (/function\\s+getObjectAsText|export\\s+async\\s+function\\s+getObjectAsText/.test(content)) {
           continue;
         }
-        walk(fullPath);
-        continue;
-      }
 
-      if (!entry.endsWith(".js")) continue;
+        const updated = content
+          .replace(patternImport, "getObjectAsText")
+          .replace(patternCall, "getObjectAsText(");
 
-      const content = fs.readFileSync(fullPath, "utf-8");
-
-      // If the file already references getObjectAsText anywhere, skip.
-      if (content.includes("getObjectAsText")) continue;
-
-      // Never touch import lines.
-      const updated = content
-        .split("\n")
-        .map((line) => (line.trim().startsWith("import") ? line : line.replace(patternCall, "$1getObjectAsText(")))
-        .join("\n");
-
-      if (updated !== content) {
-        fs.writeFileSync(fullPath, updated, "utf-8");
-        processed.push(fullPath);
+        if (updated !== content) {
+          fs.writeFileSync(full, updated, "utf8");
+          processed.push(full);
+        }
       }
     }
   }
@@ -72,7 +64,7 @@ function applySafeR2Patch() {
     log.info("🧠 Applying R2 Text Safety Patch (Safe Mode)...");
     walk(projectRoot);
     if (processed.length > 0) {
-      log.info("✅ R2 Text Safety Patch applied to:", { files: processed.length });
+      log.info("✅ R2 Text Safety Patch applied to:", processed);
     } else {
       log.info("✨ No updates required — safe definitions already exist.");
     }
@@ -82,29 +74,24 @@ function applySafeR2Patch() {
 }
 
 // ------------------------------------------------------------
-// Step 2: Feed Rotation Logic (5 feeds + 1 URL)
+// 🌀 Step 2: Feed Rotation Logic
 // ------------------------------------------------------------
 function rotateFeeds() {
   try {
+    if (!fs.existsSync(utilsDir)) fs.mkdirSync(utilsDir, { recursive: true });
+
     const feedsPath = path.join(dataDir, "feeds.txt");
     const urlsPath = path.join(dataDir, "urls.txt");
 
     if (!fs.existsSync(feedsPath) || !fs.existsSync(urlsPath)) {
-      log.error("❌ Missing feeds.txt or urls.txt in data directory", { feedsPath, urlsPath });
+      log.error("❌ Missing feeds.txt or urls.txt in data directory");
       return;
     }
 
-    const feeds = fs
-      .readFileSync(feedsPath, "utf-8")
-      .split(/\r?\n/)
-      .map((x) => x.trim())
-      .filter(Boolean);
-
-    const urls = fs
-      .readFileSync(urlsPath, "utf-8")
-      .split(/\r?\n/)
-      .map((x) => x.trim())
-      .filter(Boolean);
+    const feeds = fs.readFileSync(feedsPath, "utf-8")
+      .split("\n").map((s) => s.trim()).filter(Boolean);
+    const urls = fs.readFileSync(urlsPath, "utf-8")
+      .split("\n").map((s) => s.trim()).filter(Boolean);
 
     const batchSize = 5;
     let state = { index: 0 };
@@ -117,13 +104,11 @@ function rotateFeeds() {
       }
     }
 
-    const start = state.index;
+    const start = state.index || 0;
     const end = Math.min(start + batchSize, feeds.length);
     const currentFeeds = feeds.slice(start, end);
-
-    // If we wrapped, still pick a valid URL by batch group
-    const batchNumber = Math.floor(start / batchSize);
-    const currentUrl = urls[urls.length > 0 ? batchNumber % urls.length : 0] || "";
+    const urlIndex = Math.floor(start / batchSize) % Math.max(urls.length, 1);
+    const currentUrl = urls[urlIndex];
 
     const nextIndex = end >= feeds.length ? 0 : end;
 
@@ -133,11 +118,8 @@ function rotateFeeds() {
       batchStart: start,
       batchEnd: end,
       totalFeeds: feeds.length,
-      totalUrls: urls.length,
-      generatedAt: new Date().toISOString(),
     };
 
-    fs.mkdirSync(utilsDir, { recursive: true });
     fs.writeFileSync(stateFile, JSON.stringify({ index: nextIndex }, null, 2));
     fs.writeFileSync(activeFile, JSON.stringify(activeData, null, 2));
 
@@ -152,11 +134,11 @@ function rotateFeeds() {
 }
 
 // ------------------------------------------------------------
-// Execute
+// 🚀 Execute Both
 // ------------------------------------------------------------
 try {
   applySafeR2Patch();
   rotateFeeds();
 } catch (err) {
   log.error("❌ Failed during bootstrap sequence", { error: err.message });
-}
+                       }
