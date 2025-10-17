@@ -1,8 +1,7 @@
 // ============================================================
 // 🧠 RSS Feed Creator — Routes
 // ============================================================
-// Exposes an HTTP endpoint for the rewrite pipeline
-// POST /rss/rewrite → triggers runRewritePipeline()
+// POST /rss/rewrite → triggers RSS rewrite pipeline
 // ============================================================
 
 import express from "express";
