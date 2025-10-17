@@ -6,7 +6,8 @@ import { info, error } from "./services/shared/utils/logger.js";
 
 import rewriteRouter from "./routes/rewrite.js";
 import podcastRouter from "./routes/podcast.js";
-
+import rssHealthRouter from "#routes/rss-health.js";
+app.use(rssHealthRouter);
 const app = express();
 app.use(express.json());
 
